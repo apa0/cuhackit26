@@ -12,15 +12,15 @@ except ImportError:
 
 from routes.map import map_bp
 
-_DATA_PATH      = os.path.join(os.path.dirname(__file__), "electricity.json")
 _FRONTEND_DIR   = os.path.join(os.path.dirname(__file__), "..", "frontend")
 _TEMPLATE_DIR   = os.path.join(_FRONTEND_DIR, "templates")
 _STATIC_DIR     = os.path.join(_FRONTEND_DIR, "static")
 
 
 def _load_county_data():
-    with open(_DATA_PATH, "r") as f:
-        return json.load(f)
+    """Load county electricity + DC data from S3 via load_master_json()."""
+    from utils.electricity import load_master_json
+    return load_master_json()
 
 
 def create_app():

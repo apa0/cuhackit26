@@ -21,7 +21,6 @@ map_bp = Blueprint("map", __name__)
 
 _ROUTES_DIR  = os.path.dirname(os.path.abspath(__file__))
 _BACKEND_DIR = os.path.dirname(_ROUTES_DIR)
-_DATA_PATH   = os.path.join(_BACKEND_DIR, "electricity.json")
 _WATER_DIR   = os.path.abspath(os.path.join(_BACKEND_DIR, "..", "data", "water"))
 
 # S3 keys (override via env vars)
@@ -62,8 +61,9 @@ def _load_from_s3_or_local(s3_key: str, local_fallback: str):
 
 
 def _load_data():
-    with open(_DATA_PATH, "r") as f:
-        return json.load(f)
+    """Load county electricity + DC data from S3 via load_master_json()."""
+    from utils.electricity import load_master_json
+    return load_master_json()
 
 
 @map_bp.route("/")
