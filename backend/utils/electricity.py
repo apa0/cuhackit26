@@ -23,29 +23,26 @@ def _get_s3():
 # Load master JSON from S3
 # ---------------------------------------------------------------------------
 
-# def load_master_json() -> list[dict]:
-#     s3 = _get_s3()
-#     obj = s3.get_object(Bucket=S3_BUCKET, Key=S3_MASTER_JSON_KEY)
-#     raw = obj["Body"].read().decode("utf-8")
-#
-#     data = json.loads(raw)
-#
-#     if not isinstance(data, list):
-#         raise ValueError("Master JSON must be a list of county objects.")
-#
-#     cleaned = []
-#     for row in data:
-#         cleaned.append({
-#             "county": str(row.get("county", "")).strip(),
-#             "dc_count": int(row.get("dc_count", 0)),
-#             "avg_monthly_cost": float(row.get("avg_monthly_cost", 0)),
-#             "adjacent": row.get("adjacent", []),
-#         })
-#
-#     return cleaned
-def load_master_json():
-    with open("test_master.json", "r") as f:
-        return json.load(f)
+def load_master_json() -> list[dict]:
+    s3 = _get_s3()
+    obj = s3.get_object(Bucket=S3_BUCKET, Key=S3_MASTER_JSON_KEY)
+    raw = obj["Body"].read().decode("utf-8")
+
+    data = json.loads(raw)
+
+    if not isinstance(data, list):
+        raise ValueError("Master JSON must be a list of county objects.")
+
+    cleaned = []
+    for row in data:
+        cleaned.append({
+            "county": str(row.get("county", "")).strip(),
+            "dc_count": int(row.get("dc_count", 0)),
+            "avg_monthly_cost": float(row.get("avg_monthly_cost", 0)),
+            "adjacent": row.get("adjacent", []),
+        })
+
+    return cleaned
 
 # ---------------------------------------------------------------------------
 # Core Pressure Formula
@@ -179,9 +176,3 @@ def lambda_handler(event, context):
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
 
-
-if __name__ == "__main__":
-    result = predict_electricity_impact(
-        county="Abbeville"
-    )
-    print(json.dumps(result, indent=2))
