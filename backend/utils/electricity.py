@@ -1,7 +1,7 @@
 import json
 import os
 from dotenv import load_dotenv
-# import utils.s3 as s3_utils
+import utils.s3 as s3_utils
 
 load_dotenv()
 
