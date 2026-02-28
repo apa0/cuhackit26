@@ -28,10 +28,10 @@ Energy Almanac is a dashboard for SC agriculture planners with three core featur
 
 - Flask backend with REST API
 - Leaflet.js interactive map
-- AWS Textract for OCR on zoning documents
-- AWS Comprehend for sentiment analysis on public hearing transcripts
-- S3 for document storage
-- JSON files for hackathon; DynamoDB for production
+- AWS S3 for document storage
+- JSON files for hackathon
+- AWS knowledge bases for AI model
+- AWS IAM policies for our s3 buckets and knowledge base
 
 ---
 
