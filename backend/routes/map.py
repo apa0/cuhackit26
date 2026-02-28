@@ -143,6 +143,126 @@ def water_by_county(county=None):
     return jsonify(data)
 
 
+@map_bp.route("/datacenters")
+def datacenters():
+    """
+    Return all SC data centers with coordinates, operator, address, estimated year,
+    and status. `est_year` is derived from `date_opened` when available; nulls are
+    estimated by spreading co-located sibling buildings evenly from the campus's
+    known start year to 2022, then falling back to operator-level defaults.
+
+    Response: { "datacenters": [ { name, operator, lat, lng, address,
+                                     est_year, status, era, region }, … ] }
+    """
+    LOCAL_PATH = os.path.join(
+        os.path.dirname(__file__), "..", "..", "data", "datacenters", "sc_data_centers.json"
+    )
+    S3_DC_KEY = os.environ.get("S3_DC_KEY", "data/datacenters/sc_data_centers.json")
+
+    try:
+        import utils.s3 as s3_utils
+        raw = s3_utils.get_json(S3_DC_KEY)
+    except Exception:
+        with open(LOCAL_PATH, "r") as fh:
+            raw = json.load(fh)
+
+    items = raw.get("south_carolina_data_centers", [])
+
+    # ── Operator-level fallback years (SC first known presence) ──────────
+    _OP_DEFAULTS: dict[str, int] = {
+        "Google":                            2007,
+        "DartPoints":                        2007,
+        "DC BLOX Inc.":                      2023,
+        "TigerDC":                           2019,
+        "QTS Data Centers":                  2015,
+        "Meta":                              2027,
+        "Lumen":                             2012,
+        "Segra":                             2016,
+        "elink corp":                        2014,
+        "Cogent Communications, Inc.":       2010,
+        "Atos Group":                        2013,
+        "NorthMark Strategies":              2020,
+        "LightHouse Data Centers":           2018,
+        "Overwatch Capital":                 2021,
+        "Cielo Digital Infrastructure":      2022,
+        "Technology Solutions of SC, Inc.": 2011,
+        "Terra Nexus Ventures":              2021,
+    }
+
+    def _parse_year(val) -> int | None:
+        if not val:
+            return None
+        s = str(val).strip()
+        # Grab the first 4-digit year anywhere in the string
+        import re
+        m = re.search(r"(\d{4})", s)
+        return int(m.group(1)) if m else None
+
+    # ── Pass 1: resolve known years; group nulls by (operator, address) ──
+    _CAMPUS_YEARS: dict[tuple, list[int]] = {}
+    for dc in items:
+        yr = _parse_year(dc.get("date_opened"))
+        if yr:
+            key = (dc.get("operator"), dc.get("address", ""))
+            _CAMPUS_YEARS.setdefault(key, []).append(yr)
+
+    def _est_year(dc, idx_in_campus: int, campus_size: int) -> int:
+        known = _parse_year(dc.get("date_opened"))
+        if known:
+            return known
+        op   = dc.get("operator", "")
+        addr = dc.get("address", "")
+        key  = (op, addr)
+        campus_known = _CAMPUS_YEARS.get(key, [])
+        start = min(campus_known) if campus_known else _OP_DEFAULTS.get(op, 2018)
+        # Spread nulls evenly from start→2022 within the campus
+        end   = 2022
+        span  = max(1, end - start)
+        step  = span / max(1, campus_size - len(campus_known))
+        return min(2022, round(start + step * idx_in_campus))
+
+    # Group items by campus key to track spread index
+    from collections import defaultdict
+    _campus_null_idx: dict[tuple, int] = defaultdict(int)
+
+    def _era(year: int) -> str:
+        if year < 2010:  return "pre-2010"
+        if year < 2015:  return "2010–2014"
+        if year < 2020:  return "2015–2019"
+        return "2020-present"
+
+    results = []
+    for dc in items:
+        coords = dc.get("coordinates") or {}
+        lat = coords.get("lat")
+        lng = coords.get("lng")
+        if lat is None or lng is None:
+            continue
+        op   = dc.get("operator", "")
+        addr = dc.get("address", "")
+        key  = (op, addr)
+        campus_items = [d for d in items if d.get("operator") == op and d.get("address", "") == addr]
+        null_idx  = _campus_null_idx[key]
+        if not _parse_year(dc.get("date_opened")):
+            _campus_null_idx[key] += 1
+        yr = _est_year(dc, null_idx, len(campus_items))
+        results.append({
+            "name":       dc.get("name", "Unknown"),
+            "operator":   op,
+            "address":    addr,
+            "lat":        lat,
+            "lng":        lng,
+            "est_year":   yr,
+            "date_opened": dc.get("date_opened"),
+            "date_notes": dc.get("date_notes", ""),
+            "status":     dc.get("status", "unknown"),
+            "era":        _era(yr),
+            "region":     dc.get("region", ""),
+        })
+
+    return jsonify({"datacenters": results})
+
+
 @map_bp.route("/water/cache/clear", methods=["POST"])
 def clear_water_cache():
     """

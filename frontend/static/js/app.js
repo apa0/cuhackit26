@@ -157,6 +157,8 @@ let leafletMap      = null;
 let geojsonLayer    = null;   // the choropleth layer (replaced on redraw)
 let waterLayer      = null;   // water access point markers (DC mode only)
 let intakesLayer    = null;   // public water supply intakes (DC mode only)
+let dcBlobsLayer    = null;   // data-center blob markers (both modes)
+let dcBlobMarkers   = [];     // { marker, est_year } for timeline filtering
 let fipsLookup      = {};     // FIPS → county row from COUNTY_DATA
 let timelineData    = null;   // fetched from /api/timeline
 let timelineYears   = [2002, 2007, 2012, 2017, 2022];
@@ -232,18 +234,49 @@ function setMapMode(mode) {
   // Show water layers only in DC mode
   if (waterLayer)   { if (mode === 'dc') waterLayer.addTo(leafletMap);   else leafletMap.removeLayer(waterLayer); }
   if (intakesLayer) { if (mode === 'dc') intakesLayer.addTo(leafletMap); else leafletMap.removeLayer(intakesLayer); }
+  // Show DC blobs only in farmland mode
+  const selectedYear = timelineYears[activeYearIdx];
+  dcBlobMarkers.forEach(({ marker, est_year }) => {
+    if (mode === 'farmland' && est_year <= selectedYear) {
+      if (!leafletMap.hasLayer(marker)) marker.addTo(leafletMap);
+    } else {
+      if (leafletMap.hasLayer(marker)) leafletMap.removeLayer(marker);
+    }
+  });
 }
+
+// ── DC blob operator → CSS class + colour ────────────────────────
+const DC_OP_STYLE = {
+  'Google':                           { cls: 'dc-blob-Google',     color: '#4285F4' },
+  'DartPoints':                       { cls: 'dc-blob-DartPoints', color: '#e8962a' },
+  'DC BLOX Inc.':                     { cls: 'dc-blob-DCBLOX',     color: '#27ae60' },
+  'TigerDC':                          { cls: 'dc-blob-TigerDC',    color: '#8e44ad' },
+  'QTS Data Centers':                 { cls: 'dc-blob-QTS',        color: '#e74c3c' },
+  'Meta':                             { cls: 'dc-blob-Meta',       color: '#1877F2' },
+  'Lumen':                            { cls: 'dc-blob-Lumen',      color: '#16a085' },
+  'Segra':                            { cls: 'dc-blob-Segra',      color: '#d35400' },
+};
+function _dcStyle(op) { return DC_OP_STYLE[op] || { cls: 'dc-blob-default', color: '#7f8c8d' }; }
+const _DC_BLOB_SIZE = 22;  // px diameter for the div
 
 function updateLegend() {
   const el = document.getElementById('map-legend');
   if (!el) return;
+  const blobLegend = `
+    <div class="mleg-item" style="margin-top:.4rem;border-top:1px solid rgba(255,255,255,.2);padding-top:.4rem">
+      <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#4285F4;margin-right:4px;vertical-align:middle;opacity:.8"></span>
+      <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#e8962a;margin-right:4px;vertical-align:middle;opacity:.8"></span>
+      <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#8e44ad;margin-right:2px;vertical-align:middle;opacity:.8"></span>
+      Data Centers (blobs)
+    </div>`;
   if (mapMode === 'farmland') {
     el.innerHTML = `
       <div class="mleg-item"><span class="mleg-dot" style="background:#7f0000"></span> &gt;30% farmland lost</div>
       <div class="mleg-item"><span class="mleg-dot" style="background:#c1121f"></span> 20–30% farmland lost</div>
       <div class="mleg-item"><span class="mleg-dot" style="background:#e07b39"></span> 10–20% farmland lost</div>
       <div class="mleg-item"><span class="mleg-dot" style="background:#f4c430"></span> 2–10% farmland lost</div>
-      <div class="mleg-item"><span class="mleg-dot" style="background:#52b788"></span> Stable farmland</div>`;
+      <div class="mleg-item"><span class="mleg-dot" style="background:#52b788"></span> Stable farmland</div>
+      ${blobLegend}`;
   } else {
     el.innerHTML = `
       <div class="mleg-item"><span class="mleg-dot" style="background:#c1121f"></span> High (5+ DCs)</div>
@@ -270,6 +303,15 @@ function applyTimelineToMap() {
   });
   document.getElementById('tl-dc-total').innerHTML  = `🏭 <strong>${totalDC}</strong> Data Centers`;
   document.getElementById('tl-farm-total').innerHTML = `🌾 <strong>${totalFarm.toLocaleString()}</strong> acres farmland`;
+
+  // Filter DC blobs: only show in farmland mode for buildings that existed by the selected year
+  dcBlobMarkers.forEach(({ marker, est_year }) => {
+    if (mapMode === 'farmland' && est_year <= year) {
+      if (!leafletMap.hasLayer(marker)) marker.addTo(leafletMap);
+    } else {
+      if (leafletMap.hasLayer(marker)) leafletMap.removeLayer(marker);
+    }
+  });
 
   // Recolor each layer feature
   geojsonLayer.eachLayer(layer => {
@@ -368,10 +410,63 @@ function initMap() {
 
     // Load water layers (DC mode only)
     loadWaterLayers();
+    // Load data-center blobs (both modes)
+    loadDCBlobs();
   }).catch(() => {
     document.getElementById('sc-map').innerHTML =
       '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#888;font-size:.9rem;padding:2rem;text-align:center">Could not load map data. Check your connection.</div>';
   });
+}
+
+// ── Data-center blob layer ────────────────────────────────────────
+function loadDCBlobs() {
+  fetch('/api/map/datacenters')
+    .then(r => r.json())
+    .then(data => {
+      dcBlobsLayer = L.layerGroup();
+      const selectedYear = timelineYears[activeYearIdx];
+
+      (data.datacenters || []).forEach(dc => {
+        const style   = _dcStyle(dc.operator);
+        const sizeClass = dc.est_year < 2010 ? 'dc-blob-md'
+                        : dc.est_year < 2017 ? 'dc-blob-md' : 'dc-blob-md';
+        const isEst   = !dc.date_opened;
+        const yearTxt = isEst ? `~${dc.est_year} (est.)` : String(dc.est_year);
+        const statusBadge = dc.status === 'under_construction'
+          ? '<span style="color:#e8962a;font-weight:700"> Under Construction</span>'
+          : '<span style="color:#27ae60;font-weight:700"> Operational</span>';
+
+        const icon = L.divIcon({
+          className: 'dc-blob-icon',
+          html: `<div class="dc-blob ${sizeClass} ${style.cls}"></div>`,
+          iconSize:   [_DC_BLOB_SIZE, _DC_BLOB_SIZE],
+          iconAnchor: [_DC_BLOB_SIZE / 2, _DC_BLOB_SIZE / 2],
+          popupAnchor:[0, -(_DC_BLOB_SIZE / 2 + 4)],
+        });
+
+        const marker = L.marker([dc.lat, dc.lng], { icon, zIndexOffset: -100 })
+          .bindPopup(`
+            <div class="dc-popup">
+              <div class="dc-popup-title">${dc.name}</div>
+              <span class="dc-popup-op" style="background:${style.color}">${dc.operator}</span>
+              <div class="dc-popup-row"><span class="dc-popup-lbl">Year</span><span>${yearTxt}</span></div>
+              <div class="dc-popup-row"><span class="dc-popup-lbl">Era</span><span>${dc.era}</span></div>
+              <div class="dc-popup-row"><span class="dc-popup-lbl">Status</span><span>${statusBadge}</span></div>
+              <div class="dc-popup-row"><span class="dc-popup-lbl">Address</span><span style="font-size:.75rem">${dc.address || '—'}</span></div>
+              ${isEst ? '<div class="dc-popup-est"> Year estimated from campus records</div>' : ''}
+            </div>`, { maxWidth: 260 });
+
+        dcBlobMarkers.push({ marker, est_year: dc.est_year });
+
+        // Add to map only if in farmland mode and within the currently selected year
+        if (mapMode === 'farmland' && dc.est_year <= selectedYear) {
+          marker.addTo(leafletMap);
+        }
+      });
+
+      updateLegend();
+    })
+    .catch(err => console.warn('DC blobs failed to load:', err));
 }
 
 // ── Water layers (access points + intakes) with marker clustering ──
@@ -448,7 +543,7 @@ function loadWaterLayers() {
           L.marker(latlng, { icon: makeWaterIcon('intake') }),
         onEachFeature: (feature, layer) => {
           const p = feature.properties;
-          const status  = p.INTAKESTAT === 'A' ? '✅ Active' : '⚠️ Inactive';
+          const status  = p.INTAKESTAT === 'A' ? ' Active' : ' Inactive';
           const pwsType = p.PWSTYPE === 'C' ? 'Community' : p.PWSTYPE === 'T' ? 'Transient Non-Community' : p.PWSTYPE || '—';
           layer.bindPopup(`
             <div class="water-popup">
@@ -460,7 +555,7 @@ function loadWaterLayers() {
                 <div class="wpu-row"><span class="wpu-lbl">PWS Type</span><span>${pwsType}</span></div>
                 <div class="wpu-row"><span class="wpu-lbl">Status</span><span>${status}</span></div>
               </div>
-              <div class="wpu-note">⚠️ These intake points are at risk from increased water consumption by nearby data centers.</div>
+              <div class="wpu-note"> These intake points are at risk from increased water consumption by nearby data centers.</div>
             </div>`, { maxWidth: 270 });
         }
       });
@@ -483,7 +578,7 @@ function showMapCounty(cd) {
   const farmLossPct = (farm2002 && farmNow) ? ((farm2002 - farmNow) / farm2002 * 100).toFixed(1) : null;
 
   const tier      = dcNow >= 5 ? 'high' : dcNow > 0 ? 'med' : 'none';
-  const tierLabel = dcNow >= 5 ? '🔴 High Impact' : dcNow > 0 ? '🟠 Medium Impact' : '🟢 No Data Centers';
+  const tierLabel = dcNow >= 5 ? ' High Impact' : dcNow > 0 ? ' Medium Impact' : 'No Data Centers';
 
   const diff    = cd.avg_monthly_cost - AVG_WITHOUT;
   const diffStr = diff > 0 ? `+$${diff}` : `$${Math.abs(diff)} below`;
@@ -665,14 +760,14 @@ document.getElementById('petition-form').addEventListener('submit', async e => {
       playCaChingSound();
     } else {
       msg.classList.add('error');
-      msg.textContent = '❌ ' + (data.error || 'Something went wrong.');
+      msg.textContent = ' ' + (data.error || 'Something went wrong.');
     }
   } catch {
     const msg = document.getElementById('petition-msg');
     msg.classList.remove('hidden'); msg.classList.add('error');
-    msg.textContent = '❌ Network error. Please try again.';
+    msg.textContent = ' Network error. Please try again.';
   } finally {
-    btn.disabled = false; btn.textContent = '✅ Add My Name';
+    btn.disabled = false; btn.textContent = ' Add My Name';
   }
 });
 

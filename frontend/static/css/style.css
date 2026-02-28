@@ -769,3 +769,76 @@ button { cursor: pointer; font-family: inherit; }
 .water-cluster-md { background: #1a6faf; }
 .water-cluster-lg { background: #0d4a7a; }
 .water-cluster-intake { background: #7b2d8b; }
+
+/* ── Data-Center Blob Markers ─────────────────────────────────
+   Rendered as translucent glowing circles so they sit clearly
+   beneath the water pins and don't compete for attention.
+   ──────────────────────────────────────────────────────────── */
+
+.dc-blob-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.dc-blob {
+  border-radius: 50%;
+  opacity: .72;
+  box-shadow: 0 0 0 3px rgba(255,255,255,.45), 0 2px 10px rgba(0,0,0,.3);
+  animation: dc-pulse 2.8s ease-in-out infinite;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.dc-blob:hover { opacity: 1; }
+
+@keyframes dc-pulse {
+  0%   { box-shadow: 0 0 0 3px rgba(255,255,255,.45), 0 0 0  0px rgba(255,255,255,.0); }
+  50%  { box-shadow: 0 0 0 3px rgba(255,255,255,.55), 0 0 0 10px rgba(255,255,255,.0); }
+  100% { box-shadow: 0 0 0 3px rgba(255,255,255,.45), 0 0 0  0px rgba(255,255,255,.0); }
+}
+
+/* Operator colour palette */
+.dc-blob-Google           { background: #4285F4; }
+.dc-blob-DartPoints       { background: #e8962a; }
+.dc-blob-DCBLOX           { background: #27ae60; }
+.dc-blob-TigerDC          { background: #8e44ad; }
+.dc-blob-QTS              { background: #e74c3c; }
+.dc-blob-Meta             { background: #1877F2; }
+.dc-blob-Lumen            { background: #16a085; }
+.dc-blob-Segra            { background: #d35400; }
+.dc-blob-default          { background: #7f8c8d; }
+
+.dc-blob-sm { width: 16px; height: 16px; }
+.dc-blob-md { width: 22px; height: 22px; }
+.dc-blob-lg { width: 28px; height: 28px; }
+
+/* Popup card for DC blobs */
+.dc-popup {
+  min-width: 200px;
+  font-size: .82rem;
+  line-height: 1.5;
+}
+.dc-popup-title {
+  font-weight: 700;
+  font-size: .9rem;
+  margin-bottom: .25rem;
+  color: var(--green-dark);
+}
+.dc-popup-op {
+  display: inline-block;
+  padding: .1rem .45rem;
+  border-radius: 8px;
+  font-size: .72rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: .4rem;
+}
+.dc-popup-row {
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+  border-top: 1px solid #eee;
+  padding-top: .2rem;
+  margin-top: .2rem;
+}
+.dc-popup-lbl { color: #888; }
+.dc-popup-est  { font-style: italic; color: #aaa; font-size: .7rem; margin-top: .25rem; }
