@@ -94,6 +94,42 @@ def create_app():
         result = verify_credentials()
         return jsonify(result), (200 if result["ok"] else 500)
 
+    # ── Electricity impact ────────────────────────────────────────────────
+    @app.route("/api/impact/electricity", methods=["GET"])
+    def electricity_impact():
+        """
+        Project electricity cost impact for a county.
+
+        Query params:
+          county             SC county name (defaults to Oconee for testing)
+          months             months to project, default 1
+          override_base_cost override the avg cost from the dataset
+          save               pass save=true to persist result to S3
+
+        Example: GET /api/impact/electricity?county=Oconee&months=3
+        """
+        from utils.electricity import predict_electricity_impact, save_projection_to_s3
+
+        county = request.args.get("county", "Oconee").strip()
+        months = request.args.get("months", 1, type=int)
+        override = request.args.get("override_base_cost", None, type=float)
+        should_save = request.args.get("save", "false").lower() == "true"
+
+        try:
+            result = predict_electricity_impact(
+                county=county,
+                months_to_project=months,
+                override_base_cost=override,
+            )
+            if should_save:
+                s3_uri = save_projection_to_s3(result)
+                result["saved_to"] = s3_uri
+            return jsonify(result)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 404
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     return app
 
 

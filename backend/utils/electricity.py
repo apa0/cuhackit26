@@ -1,30 +1,18 @@
-import json
 import os
-import boto3
 from dotenv import load_dotenv
+import utils.s3 as s3_utils
 
 load_dotenv()
 
-S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "root-watch-data")
 S3_MASTER_JSON_KEY = os.environ.get("S3_MASTER_JSON_KEY", "data/master_electricity.json")
-AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-
-_s3_client = None
-
-
-def _get_s3():
-    global _s3_client
-    if _s3_client is None:
-        _s3_client = boto3.client("s3", region_name=AWS_REGION)
-    return _s3_client
 
 
 def load_master_json() -> list[dict]:
-    s3 = _get_s3()
-    obj = s3.get_object(Bucket=S3_BUCKET, Key=S3_MASTER_JSON_KEY)
-    raw = obj["Body"].read().decode("utf-8")
-
-    data = json.loads(raw)
+    """
+    Pull the master electricity JSON from S3 and return a cleaned list of county rows.
+    Uses s3_utils.get_json() so all AWS auth is handled in one place.
+    """
+    data = s3_utils.get_json(S3_MASTER_JSON_KEY)
 
     if not isinstance(data, list):
         raise ValueError("Master JSON must be a list of county objects.")
@@ -120,14 +108,11 @@ def predict_electricity_impact(
 
 
 def save_projection_to_s3(result: dict, key: str = "projection.json") -> str:
-    s3 = _get_s3()
-    s3.put_object(
-        Bucket=S3_BUCKET,
-        Key=key,
-        Body=json.dumps(result, indent=2),
-        ContentType="application/json",
-    )
-    return f"s3://{S3_BUCKET}/{key}"
+    """
+    Persist a projection result to S3 as JSON.
+    Uses s3_utils.put_json() so all AWS auth is handled in one place.
+    """
+    return s3_utils.put_json(key, result)
 
 
 def lambda_handler(event, context):

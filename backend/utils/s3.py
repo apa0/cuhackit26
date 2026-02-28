@@ -139,6 +139,44 @@ def delete_document(key: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# JSON helpers
+# ---------------------------------------------------------------------------
+
+def get_json(key: str):
+    """
+    Download a JSON file from S3 and return the parsed Python object.
+
+    Args:
+        key:  S3 object key, e.g. "data/master_electricity.json"
+
+    Returns:
+        Parsed JSON (list, dict, etc.)
+    """
+    import json
+    client = _get_client()
+    obj = client.get_object(Bucket=_BUCKET, Key=key)
+    raw = obj["Body"].read().decode("utf-8")
+    return json.loads(raw)
+
+
+def put_json(key: str, data, metadata: Optional[dict] = None) -> str:
+    """
+    Serialize `data` to JSON and upload it to S3.
+
+    Args:
+        key:       S3 object key, e.g. "projections/electricity/oconee/2026-02-28.json"
+        data:      Any JSON-serializable Python object.
+        metadata:  Optional key-value metadata dict.
+
+    Returns:
+        The S3 URI of the uploaded object: s3://<bucket>/<key>
+    """
+    import json
+    encoded = json.dumps(data, indent=2).encode("utf-8")
+    return upload_document(encoded, key, content_type="application/json", metadata=metadata)
+
+
+# ---------------------------------------------------------------------------
 # Credential / connectivity check
 # ---------------------------------------------------------------------------
 
