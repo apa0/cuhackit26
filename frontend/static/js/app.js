@@ -155,11 +155,35 @@ function playCaChingSound() {
 let mapInitialized  = false;
 let leafletMap      = null;
 let geojsonLayer    = null;   // the choropleth layer (replaced on redraw)
+let waterLayer      = null;   // water access point markers (DC mode only)
+let intakesLayer    = null;   // public water supply intakes (DC mode only)
 let fipsLookup      = {};     // FIPS → county row from COUNTY_DATA
 let timelineData    = null;   // fetched from /api/timeline
 let timelineYears   = [2002, 2007, 2012, 2017, 2022];
 let activeYearIdx   = 4;      // 0-based index into timelineYears  (default: 2022)
 let mapMode         = 'dc';   // 'dc' | 'farmland'
+
+// ── Water marker icons ───────────────────────────────────────────
+const WATER_ICONS = {
+  'Boat Ramp':           { emoji: '🚤', color: '#1a6faf' },
+  'Pier':                { emoji: '🎣', color: '#1a6faf' },
+  'Bank':                { emoji: '🏞️', color: '#2d9e6b' },
+  'Paddle Launch':       { emoji: '🛶', color: '#2d9e6b' },
+  'Other (See Comments)':{ emoji: '💧', color: '#5b8fa8' },
+  'intake':              { emoji: '🚰', color: '#7b2d8b' },
+  'default':             { emoji: '💧', color: '#1a6faf' },
+};
+
+function makeWaterIcon(type) {
+  const cfg = WATER_ICONS[type] || WATER_ICONS['default'];
+  return L.divIcon({
+    className: 'water-marker',
+    html: `<div class="wm-pin" style="background:${cfg.color}">${cfg.emoji}</div>`,
+    iconSize:   [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor:[0, -16],
+  });
+}
 
 // ── Color scales ──────────────────────────────────────────────────
 function countyColorDC(dcCount) {
@@ -205,6 +229,9 @@ function setMapMode(mode) {
   document.getElementById('mode-btn-farm').classList.toggle('active', mode === 'farmland');
   updateLegend();
   if (geojsonLayer) applyTimelineToMap();
+  // Show water layers only in DC mode
+  if (waterLayer)   { if (mode === 'dc') waterLayer.addTo(leafletMap);   else leafletMap.removeLayer(waterLayer); }
+  if (intakesLayer) { if (mode === 'dc') intakesLayer.addTo(leafletMap); else leafletMap.removeLayer(intakesLayer); }
 }
 
 function updateLegend() {
@@ -222,7 +249,9 @@ function updateLegend() {
       <div class="mleg-item"><span class="mleg-dot" style="background:#c1121f"></span> High (5+ DCs)</div>
       <div class="mleg-item"><span class="mleg-dot" style="background:#e07b39"></span> Medium (3–4 DCs)</div>
       <div class="mleg-item"><span class="mleg-dot" style="background:#f4c430"></span> Low (1–2 DCs)</div>
-      <div class="mleg-item"><span class="mleg-dot" style="background:#52b788"></span> No Data Centers</div>`;
+      <div class="mleg-item"><span class="mleg-dot" style="background:#52b788"></span> No Data Centers</div>
+      <div class="mleg-item"><span class="mleg-emoji">💧</span> Water Access Point</div>
+      <div class="mleg-item"><span class="mleg-emoji">🚰</span> Water Supply Intake</div>`;
   }
 }
 
@@ -267,9 +296,10 @@ function initMap() {
 
   leafletMap = L.map('sc-map', { zoomControl: true, scrollWheelZoom: false });
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap contributors, © CARTO',
-    maxZoom: 13
+  // ─── Terrain base layer: shows rivers, lakes, and elevation clearly ───
+  L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://stamen.com/">Stamen Design</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 18
   }).addTo(leafletMap);
 
   // FIPS lookup
@@ -307,7 +337,7 @@ function initMap() {
         const dcCount = parseInt((row && row.dc_count[yearStr]) || cd.dc_count || 0);
         return {
           fillColor:   getCountyColor(cd.county, yearStr, dcCount),
-          fillOpacity: 0.76,
+          fillOpacity: 0.55,   // reduced opacity so terrain/water shows through
           color:       '#fff',
           weight:      1.5
         };
@@ -324,7 +354,7 @@ function initMap() {
           { className: 'map-tooltip', sticky: true }
         );
         lyr.on({
-          mouseover: e => e.target.setStyle({ fillOpacity: 0.95, weight: 2.5 }),
+          mouseover: e => e.target.setStyle({ fillOpacity: 0.85, weight: 2.5 }),
           mouseout:  e => geojsonLayer.resetStyle(e.target),
           click:     () => showMapCounty(cd)
         });
@@ -335,10 +365,109 @@ function initMap() {
 
     // Prime the summary stats
     if (timelineData) applyTimelineToMap();
+
+    // Load water layers (DC mode only)
+    loadWaterLayers();
   }).catch(() => {
     document.getElementById('sc-map').innerHTML =
       '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#888;font-size:.9rem;padding:2rem;text-align:center">Could not load map data. Check your connection.</div>';
   });
+}
+
+// ── Water layers (access points + intakes) with marker clustering ──
+function loadWaterLayers() {
+  // Create cluster groups — markers only appear individually when zoomed in
+  const clusterOpts = {
+    maxClusterRadius:       50,      // px radius to group nearby markers
+    disableClusteringAtZoom: 11,     // show individual markers at zoom 11+
+    spiderfyOnMaxZoom:      true,
+    showCoverageOnHover:    false,
+    iconCreateFunction: function(cluster) {
+      const count = cluster.getChildCount();
+      const size  = count > 20 ? 'lg' : count > 5 ? 'md' : 'sm';
+      return L.divIcon({
+        html: `<div class="water-cluster water-cluster-${size}">${count}</div>`,
+        className: 'water-cluster-icon',
+        iconSize: L.point(36, 36)
+      });
+    }
+  };
+
+  // Access points layer (clustered)
+  fetch('/api/map/water/access')
+    .then(r => r.json())
+    .then(geojson => {
+      waterLayer = L.markerClusterGroup(clusterOpts);
+      const markers = L.geoJSON(geojson, {
+        pointToLayer: (feature, latlng) => {
+          const type = feature.properties.WaterAccessType || 'default';
+          return L.marker(latlng, { icon: makeWaterIcon(type) });
+        },
+        onEachFeature: (feature, layer) => {
+          const p = feature.properties;
+          const wbType   = p.WaterbodyType  || '—';
+          const waterType= p.WaterType      || '—';
+          const owner    = p.Owner          || '—';
+          const access   = p.PublicAccess   || '—';
+          layer.bindPopup(`
+            <div class="water-popup">
+              <div class="wpu-title">${p.WaterAccessName || 'Water Access Point'}</div>
+              <div class="wpu-sub">${p.WaterAccessType || ''} · ${p.County || ''} County</div>
+              <div class="wpu-grid">
+                <div class="wpu-row"><span class="wpu-lbl">Waterbody</span><span>${p.Waterbody || '—'}</span></div>
+                <div class="wpu-row"><span class="wpu-lbl">Type</span><span>${wbType}</span></div>
+                <div class="wpu-row"><span class="wpu-lbl">Water Type</span><span>${waterType}</span></div>
+                <div class="wpu-row"><span class="wpu-lbl">Owner</span><span>${owner}</span></div>
+                <div class="wpu-row"><span class="wpu-lbl">Public Access</span><span>${access}</span></div>
+              </div>
+            </div>`, { maxWidth: 260 });
+        }
+      });
+      waterLayer.addLayer(markers);
+      if (mapMode === 'dc') waterLayer.addTo(leafletMap);
+    })
+    .catch(err => console.warn('Water access layer failed to load:', err));
+
+  // Public water supply intakes layer (clustered)
+  fetch('/api/map/water/intakes')
+    .then(r => r.json())
+    .then(geojson => {
+      intakesLayer = L.markerClusterGroup({
+        ...clusterOpts,
+        iconCreateFunction: function(cluster) {
+          const count = cluster.getChildCount();
+          return L.divIcon({
+            html: `<div class="water-cluster water-cluster-intake">${count}</div>`,
+            className: 'water-cluster-icon',
+            iconSize: L.point(36, 36)
+          });
+        }
+      });
+      const markers = L.geoJSON(geojson, {
+        pointToLayer: (feature, latlng) =>
+          L.marker(latlng, { icon: makeWaterIcon('intake') }),
+        onEachFeature: (feature, layer) => {
+          const p = feature.properties;
+          const status  = p.INTAKESTAT === 'A' ? '✅ Active' : '⚠️ Inactive';
+          const pwsType = p.PWSTYPE === 'C' ? 'Community' : p.PWSTYPE === 'T' ? 'Transient Non-Community' : p.PWSTYPE || '—';
+          layer.bindPopup(`
+            <div class="water-popup">
+              <div class="wpu-title">${p.PWSNAME || 'Water Supply Intake'}</div>
+              <div class="wpu-sub">Public Water Intake · ${(p.COUNTY || '').replace(/\b\w/g,c=>c.toUpperCase())} County</div>
+              <div class="wpu-grid">
+                <div class="wpu-row"><span class="wpu-lbl">Facility</span><span>${p.FACILITYNA || '—'}</span></div>
+                <div class="wpu-row"><span class="wpu-lbl">Intake ID</span><span>${p.INTAKE || '—'}</span></div>
+                <div class="wpu-row"><span class="wpu-lbl">PWS Type</span><span>${pwsType}</span></div>
+                <div class="wpu-row"><span class="wpu-lbl">Status</span><span>${status}</span></div>
+              </div>
+              <div class="wpu-note">⚠️ These intake points are at risk from increased water consumption by nearby data centers.</div>
+            </div>`, { maxWidth: 270 });
+        }
+      });
+      intakesLayer.addLayer(markers);
+      if (mapMode === 'dc') intakesLayer.addTo(leafletMap);
+    })
+    .catch(err => console.warn('Water intakes layer failed to load:', err));
 }
 
 function showMapCounty(cd) {

@@ -741,3 +741,31 @@ button { cursor: pointer; font-family: inherit; }
   .calc-numbers     { grid-template-columns: 1fr; }
   .calc-bar-label   { width: 80px; font-size: .72rem; }
 }
+
+/* ── Water Marker Cluster Styles ──────────────────────────────
+   Requires: leaflet.markercluster CSS (see HTML note below)
+   ──────────────────────────────────────────────────────────── */
+
+.water-cluster-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.water-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  border: 2px solid rgba(255,255,255,.7);
+}
+
+.water-cluster-sm { background: #3a9bdc; }
+.water-cluster-md { background: #1a6faf; }
+.water-cluster-lg { background: #0d4a7a; }
+.water-cluster-intake { background: #7b2d8b; }
