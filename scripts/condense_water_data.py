@@ -2,14 +2,22 @@
 Condenses raw water GeoJSON data into two files:
   data/water/sc_water_access_slim.geojson  — map-ready, active access points only
   data/water/sc_water_by_county.json       — per-county summary for prediction model
+
+Then uploads both files to S3 so the API can serve them from there.
+Run from the repo root:
+  python scripts/condense_water_data.py
 """
 
 import json
 import os
+import sys
 from collections import defaultdict
 
+# Allow imports from backend/utils
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-WATER_DIR = os.path.join(ROOT, "data", "water")
+WATER_DIR = os.path.abspath(os.path.join(ROOT, "data", "water"))
 
 # ── 1. sc_water_access_slim.geojson ──────────────────────────────────────
 KEEP = [
@@ -18,7 +26,7 @@ KEEP = [
     "Owner", "Status", "PublicAccess", "Latitude", "Longitude",
 ]
 
-with open(os.path.join(WATER_DIR, "South_Carolina_Public_Water_Access_PUBLIC_VIEW.geojson")) as f:
+with open(os.path.join(WATER_DIR, "original", "South_Carolina_Public_Water_Access_PUBLIC_VIEW.geojson")) as f:
     raw = json.load(f)
 
 slim_features = []
@@ -70,7 +78,7 @@ for feat in slim_features:
         county_access[c]["access_types"].add(p["WaterAccessType"])
 
 # Load public water supply intakes
-with open(os.path.join(WATER_DIR, "Public_Water_Supply_Intakes.geojson")) as f:
+with open(os.path.join(WATER_DIR, "original", "Public_Water_Supply_Intakes.geojson")) as f:
     intakes_raw = json.load(f)
 
 county_intakes = defaultdict(list)
@@ -118,3 +126,48 @@ sample = next(r for r in result if r["public_water_intakes"] > 0)
 print(f"    Sample ({sample['county']}): {sample['water_access_points']} access pts, "
       f"{sample['public_water_intakes']} intakes ({sample['active_intakes']} active), "
       f"waterbodies: {sample['unique_waterbodies'][:3]}")
+
+# ── Upload to S3 ──────────────────────────────────────────────────────────
+print("\nUploading to S3...")
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(ROOT, "backend", ".env"))
+except ImportError:
+    pass
+
+try:
+    import utils.s3 as s3_utils
+
+    # Upload slim GeoJSON
+    with open(out_slim, "rb") as f:
+        s3_utils.upload_document(
+            f.read(),
+            key="data/water/sc_water_access_slim.geojson",
+            content_type="application/geo+json",
+        )
+    print("[S3] Uploaded data/water/sc_water_access_slim.geojson")
+
+    # Upload county summary
+    with open(out_county, "rb") as f:
+        s3_utils.upload_document(
+            f.read(),
+            key="data/water/sc_water_by_county.json",
+            content_type="application/json",
+        )
+    print("[S3] Uploaded data/water/sc_water_by_county.json")
+
+    # Upload original intakes file
+    intakes_src = os.path.join(WATER_DIR, "original", "Public_Water_Supply_Intakes.geojson")
+    with open(intakes_src, "rb") as f:
+        s3_utils.upload_document(
+            f.read(),
+            key="data/water/Public_Water_Supply_Intakes.geojson",
+            content_type="application/geo+json",
+        )
+    print("[S3] Uploaded data/water/Public_Water_Supply_Intakes.geojson")
+
+    print("\nAll files uploaded to S3 successfully.")
+
+except Exception as e:
+    print(f"[S3] Upload failed: {e}")
+    print("Local files are still available as fallback.")
