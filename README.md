@@ -6,7 +6,7 @@ An early-warning intelligence platform for South Carolina agriculture planners t
 
 ## The Problem
 
-South Carolina is losing farmland fast — 281,000 acres converted between 2001–2016, and billions of dollars in data center projects are accelerating that trend. These projects are often approved quietly, with little transparency on water or energy impact. A $2.4B data center was approved in Marion County during a January 2026 winter storm; most residents didn't know it was on the agenda.
+South Carolina is losing farmland fast — 281,000 acres converted between 2001–2016, and billions of dollars in data center projects are accelerating that trend. These projects are often approved quietly, with little transparency on water or electricity impact. A $2.4B data center was approved in Marion County during a January 2026 winter storm; most residents didn't know it was on the agenda.
 
 The data to fight this exists. It's scattered across USGS water databases, USDA crop surveys, 46 county zoning boards, and state legislative filings. RootWatch connects them.
 
@@ -60,5 +60,3 @@ RootWatch provides the evidence layer these policies need — and the early-warn
 ---
 
 Built at CUhackit 2026 — Clemson University's annual hackathon.
-
-test
