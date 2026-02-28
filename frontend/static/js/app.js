@@ -606,65 +606,64 @@ function showMapCounty(cd) {
 }
 
 /* ── Farm Calculator ──────────────────────────────────────────── */
-function runCalculator() {
+async function runCalculator() {
   const countyEl  = document.getElementById('calc-county');
-  const kwhEl     = document.getElementById('calc-kwh');
-  const billEl    = document.getElementById('calc-bill');
-
   const countyName = countyEl.value;
   if (!countyName) { countyEl.focus(); return; }
 
-  const cd = COUNTY_DATA.find(c => c.county === countyName);
-  if (!cd) return;
+  const btn = document.querySelector('#tab-calculator .btn-primary');
+  btn.disabled = true;
+  btn.textContent = '⏳ Calculating…';
 
-  const kwh  = parseFloat(kwhEl.value)  || 0;
-  const bill = parseFloat(billEl.value) || cd.avg_monthly_cost;
+  try {
+    const res  = await fetch(`/api/impact/electricity?county=${encodeURIComponent(countyName)}&months=12`);
+    const data = await res.json();
 
-  const rateYour = cd.avg_monthly_cost / 1100; // $/kWh estimate
-  const rateBase = AVG_WITHOUT / 1100;
-  const kwhUsed  = kwh || 1100;
+    if (!res.ok || data.error) {
+      alert(data.error || 'Could not fetch prediction.');
+      return;
+    }
 
-  const monthlyOvercharge = Math.max(0, Math.round(bill - AVG_WITHOUT));
-  const annual  = monthlyOvercharge * 12;
-  const decade  = annual * 10;
+    const proj = data.projections;          // array of 12 month objects
+    const mo1  = proj[0].projected_monthly_bill_usd;
+    const mo6  = proj[5].projected_monthly_bill_usd;
+    const mo12 = proj[11].projected_monthly_bill_usd;
+    const base = data.base_monthly_cost;
+    const pct  = data.pct_increase_over_period;
+    const dcCount = data.county_dc;
 
-  const result = document.getElementById('calc-result');
-  result.classList.remove('hidden');
+    const result = document.getElementById('calc-result');
+    result.classList.remove('hidden');
 
-  document.getElementById('calc-county-name').textContent = countyName + ' County';
+    document.getElementById('calc-county-name').textContent = countyName + ' County';
+    document.getElementById('calc-base-disp').textContent   = `Current avg: $${base}/mo`;
 
-  // Animate numbers
-  animateCounter('calc-monthly', monthlyOvercharge, '$', '/mo');
-  animateCounter('calc-annual',  annual,  '$', '/yr');
-  animateCounter('calc-decade',  decade,  '$', '/10yr');
+    // Animate projected bills
+    animateCounter('calc-mo1',  mo1,  '$', '/mo');
+    animateCounter('calc-mo6',  mo6,  '$', '/mo');
+    animateCounter('calc-mo12', mo12, '$', '/mo');
 
-  // Cost comparison bars
-  const maxCost = 250;
-  const yourPct = Math.min(100, Math.round(cd.avg_monthly_cost / maxCost * 100));
-  const basePct = Math.min(100, Math.round(AVG_WITHOUT / maxCost * 100));
-  document.getElementById('bar-your').style.width = yourPct + '%';
-  document.getElementById('bar-your-amt').textContent = '$' + cd.avg_monthly_cost + '/mo';
-  const firstBarLabel = document.querySelector('.calc-bar-label');
-  if (firstBarLabel) firstBarLabel.textContent = `${countyName} avg $${cd.avg_monthly_cost}`;
+    // % increase row
+    document.getElementById('calc-pct-row').innerHTML =
+      `📈 Projected <strong>+${pct}%</strong> increase over 12 months` +
+      (dcCount > 0 ? ` · <strong>${dcCount}</strong> data center(s) driving rate pressure` : ' · No local data centers');
 
-  // Context message
-  const ctxEl = document.getElementById('calc-context');
-  if (cd.dc_count === 0) {
-    ctxEl.textContent = `${countyName} has no data centers, and your bill reflects a near-baseline rate. Be aware — adjacent counties with DCs may still influence grid costs.`;
-  } else {
-    const farmImpact = annual > 0 ? `That's $${annual} per year — enough to buy ${Math.round(annual/15)} bushels of seed corn.` : '';
-    ctxEl.textContent = `${countyName} has ${cd.dc_count} data center(s). Residents pay ~$${monthlyOvercharge} more per month than counties with no DCs. ${farmImpact}`;
+    // Plain-english summary from lambda
+    document.getElementById('calc-context').textContent = data.plain_english;
+
+    playCaChingSound();
+    result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch {
+    alert('Network error — please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Calculate My Impact';
   }
-
-  playCaChingSound();
-  result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// Allow "Enter" key in calculator inputs
-['calc-county','calc-kwh','calc-bill'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') runCalculator(); });
-});
+// Allow Enter key on county select
+const _calcCountyEl = document.getElementById('calc-county');
+if (_calcCountyEl) _calcCountyEl.addEventListener('keydown', e => { if (e.key === 'Enter') runCalculator(); });
 
 /* ── Analytics Chart ──────────────────────────────────────────── */
 let chartInstance = null;

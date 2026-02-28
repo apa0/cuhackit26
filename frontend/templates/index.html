@@ -144,7 +144,7 @@
 <section id="tab-calculator" class="tab-section">
   <div class="section-header">
     <h2>🌾 Farm Cost Calculator</h2>
-    <p>See exactly how much extra you're paying because of nearby data centers.</p>
+    <p>Select your county to see electricity cost projections driven by nearby data centers.</p>
   </div>
   <div class="calc-layout">
     <div class="calc-form-wrap">
@@ -158,48 +158,30 @@
             {% endfor %}
           </select>
         </div>
-        <div class="form-group">
-          <label>Monthly Electricity Use (kWh)</label>
-          <input type="number" id="calc-kwh" placeholder="e.g. 1200" min="0" />
-          <span class="form-hint">Average SC home: ~1,100 kWh/mo · Small farm: 2,000–5,000 kWh/mo</span>
-        </div>
-        <div class="form-group">
-          <label>Current Monthly Bill ($)</label>
-          <input type="number" id="calc-bill" placeholder="e.g. 175.00" min="0" step="0.01" />
-        </div>
         <button class="btn-primary full-width" onclick="runCalculator()">⚡ Calculate My Impact</button>
       </div>
     </div>
     <div class="calc-result hidden" id="calc-result">
       <div class="calc-result-header">
         <span id="calc-county-name" class="calc-county-badge"></span>
+        <span class="calc-base-cost" id="calc-base-disp"></span>
       </div>
+      <div class="calc-pred-heading">Projected Monthly Bill</div>
       <div class="calc-numbers">
         <div class="calc-num-block">
-          <div class="calc-big" id="calc-monthly">$0</div>
-          <div class="calc-sublabel">overcharge / month</div>
+          <div class="calc-big" id="calc-mo1">$—</div>
+          <div class="calc-sublabel">After 1 month</div>
         </div>
         <div class="calc-num-block highlight">
-          <div class="calc-big" id="calc-annual">$0</div>
-          <div class="calc-sublabel">overcharge / year</div>
+          <div class="calc-big" id="calc-mo6">$—</div>
+          <div class="calc-sublabel">After 6 months</div>
         </div>
         <div class="calc-num-block">
-          <div class="calc-big" id="calc-decade">$0</div>
-          <div class="calc-sublabel">overcharge / 10 years</div>
+          <div class="calc-big" id="calc-mo12">$—</div>
+          <div class="calc-sublabel">After 12 months</div>
         </div>
       </div>
-      <div class="calc-compare">
-        <div class="calc-bar-wrap">
-          <div class="calc-bar-label">Your county avg</div>
-          <div class="calc-bar-outer"><div class="calc-bar your" id="bar-your"></div></div>
-          <div class="calc-bar-amt" id="bar-your-amt"></div>
-        </div>
-        <div class="calc-bar-wrap">
-          <div class="calc-bar-label">No-DC county avg ${{ avg_without }}</div>
-          <div class="calc-bar-outer"><div class="calc-bar base" id="bar-base" style="width:{{ (avg_without / 250 * 100)|int }}%"></div></div>
-          <div class="calc-bar-amt">${{ avg_without }}/mo</div>
-        </div>
-      </div>
+      <div class="calc-pct-row" id="calc-pct-row"></div>
       <p class="calc-context" id="calc-context"></p>
       <button class="btn-secondary full-width" onclick="switchTab('petition')">✍️ Sign the Petition to Fix This</button>
     </div>

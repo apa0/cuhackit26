@@ -123,6 +123,7 @@ def lambda_handler(event, context):
         print(f"[lambda_handler] invoked with event: {event}")
         result = predict_electricity_impact(
             county=event["county"],
+            months_to_project=int(event.get("months_to_project", 12)),
         )
 
         return {"statusCode": 200, "body": json.dumps(result)}

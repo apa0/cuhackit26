@@ -494,7 +494,37 @@ button { cursor: pointer; font-family: inherit; }
   animation: fadeUp .3s ease;
 }
 .calc-result.hidden { display: none; }
-.calc-result-header { margin-bottom: 1.2rem; }
+.calc-result-header {
+  margin-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.calc-base-cost {
+  font-size: .82rem;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: .25rem .75rem;
+}
+.calc-pred-heading {
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+  margin-bottom: .6rem;
+}
+.calc-pct-row {
+  background: var(--green-pale);
+  border-radius: var(--radius);
+  padding: .65rem 1rem;
+  font-size: .84rem;
+  color: var(--green-dark);
+  margin-bottom: 1rem;
+}
 .calc-county-badge {
   background: var(--green-pale);
   color: var(--green-dark);
