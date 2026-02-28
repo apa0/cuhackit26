@@ -133,6 +133,73 @@ def create_app():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    # ── Timeline (farmland + DC growth) ──────────────────────────────────
+    @app.route("/api/timeline")
+    def timeline():
+        """
+        Returns per-county data for the timeline slider.
+        Combines:
+          - USDA NASS farmland acres (2002, 2007, 2012, 2017, 2022)
+          - Estimated DC growth over the same years (hardcoded milestones
+            based on known SC data center expansion waves)
+
+        Response shape:
+          {
+            "years": [2002, 2007, 2012, 2017, 2022],
+            "counties": {
+              "Spartanburg": {
+                "farmland": {2002: 112000, 2007: 108000, ...},
+                "dc_count":  {2002: 0, 2007: 0, 2012: 2, 2017: 8, 2022: 14}
+              }, ...
+            }
+          }
+        """
+        from utils.nass import fetch_farmland_by_county
+
+        years = [2002, 2007, 2012, 2017, 2022]
+        counties = _load_county_data()
+        farmland = fetch_farmland_by_county()
+
+        # DC timeline estimates — SC major campus openings by era:
+        # Pre-2010: almost none | 2010-2016: small wave | 2017-2022: boom
+        def estimate_dc_timeline(current_count: int) -> dict:
+            if current_count == 0:
+                return {y: 0 for y in years}
+            if current_count == 1:
+                return {2002: 0, 2007: 0, 2012: 0, 2017: 1, 2022: 1}
+            if current_count == 2:
+                return {2002: 0, 2007: 0, 2012: 1, 2017: 2, 2022: 2}
+            if current_count <= 4:
+                return {2002: 0, 2007: 0, 2012: 1, 2017: 2, 2022: current_count}
+            # Large clusters (Berkeley=12, Spartanburg=14): grew sharply post-2017
+            return {
+                2002: 0,
+                2007: 0,
+                2012: max(1, current_count // 7),
+                2017: max(2, current_count // 3),
+                2022: current_count,
+            }
+
+        result = {}
+        for c in counties:
+            name = c["county"]
+            dc_timeline = estimate_dc_timeline(c["dc_count"])
+            farm_data = farmland.get(name, {})
+            # Convert year keys to strings for JSON
+            result[name] = {
+                "dc_count":  {str(y): dc_timeline[y] for y in years},
+                "farmland":  {str(k): v for k, v in farm_data.items()} if farm_data else {},
+            }
+
+        return jsonify({"years": years, "counties": result})
+
+    @app.route("/api/timeline/refresh")
+    def timeline_refresh():
+        """Bust the NASS farmland cache and re-fetch from the API."""
+        from utils.nass import bust_cache
+        bust_cache()
+        return jsonify({"ok": True, "message": "Cache cleared. Next /api/timeline call will re-fetch from NASS."})
+
     return app
 
 

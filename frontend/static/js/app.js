@@ -151,17 +151,116 @@ function playCaChingSound() {
   });
 }
 
-/* ── Leaflet Map ──────────────────────────────────────────────── */
-let mapInitialized = false;
-let leafletMap = null;
+/* ── Leaflet Map + Timeline ───────────────────────────────────── */
+let mapInitialized  = false;
+let leafletMap      = null;
+let geojsonLayer    = null;   // the choropleth layer (replaced on redraw)
+let fipsLookup      = {};     // FIPS → county row from COUNTY_DATA
+let timelineData    = null;   // fetched from /api/timeline
+let timelineYears   = [2002, 2007, 2012, 2017, 2022];
+let activeYearIdx   = 4;      // 0-based index into timelineYears  (default: 2022)
+let mapMode         = 'dc';   // 'dc' | 'farmland'
 
-function countyColor(dcCount) {
+// ── Color scales ──────────────────────────────────────────────────
+function countyColorDC(dcCount) {
   if (dcCount >= 5) return '#c1121f';
   if (dcCount >= 3) return '#e07b39';
   if (dcCount >= 1) return '#f4c430';
   return '#52b788';
 }
 
+// Farmland loss as % relative to 2002 baseline → red = more loss
+function countyColorFarm(county, year) {
+  if (!timelineData) return '#ccc';
+  const row = timelineData.counties[county];
+  if (!row || !row.farmland) return '#ccc';
+  const base = row.farmland['2002'];
+  const cur  = row.farmland[String(year)];
+  if (!base || !cur) return '#aaa';
+  const pct = (base - cur) / base;   // 0 = no loss, 1 = total loss
+  if (pct >= 0.30) return '#7f0000';
+  if (pct >= 0.20) return '#c1121f';
+  if (pct >= 0.10) return '#e07b39';
+  if (pct >= 0.02) return '#f4c430';
+  return '#52b788';   // farmland roughly stable
+}
+
+function getCountyColor(countyName, yearStr, dcCount) {
+  if (mapMode === 'farmland') return countyColorFarm(countyName, yearStr);
+  return countyColorDC(dcCount);
+}
+
+// ── Year-slider helpers ────────────────────────────────────────────
+function onYearSlide(val) {
+  activeYearIdx = parseInt(val);
+  const year = timelineYears[activeYearIdx];
+  document.getElementById('tl-year-label').textContent = year;
+  updateLegend();
+  if (timelineData) applyTimelineToMap();
+}
+
+function setMapMode(mode) {
+  mapMode = mode;
+  document.getElementById('mode-btn-dc').classList.toggle('active',   mode === 'dc');
+  document.getElementById('mode-btn-farm').classList.toggle('active', mode === 'farmland');
+  updateLegend();
+  if (geojsonLayer) applyTimelineToMap();
+}
+
+function updateLegend() {
+  const el = document.getElementById('map-legend');
+  if (!el) return;
+  if (mapMode === 'farmland') {
+    el.innerHTML = `
+      <div class="mleg-item"><span class="mleg-dot" style="background:#7f0000"></span> &gt;30% farmland lost</div>
+      <div class="mleg-item"><span class="mleg-dot" style="background:#c1121f"></span> 20–30% farmland lost</div>
+      <div class="mleg-item"><span class="mleg-dot" style="background:#e07b39"></span> 10–20% farmland lost</div>
+      <div class="mleg-item"><span class="mleg-dot" style="background:#f4c430"></span> 2–10% farmland lost</div>
+      <div class="mleg-item"><span class="mleg-dot" style="background:#52b788"></span> Stable farmland</div>`;
+  } else {
+    el.innerHTML = `
+      <div class="mleg-item"><span class="mleg-dot" style="background:#c1121f"></span> High (5+ DCs)</div>
+      <div class="mleg-item"><span class="mleg-dot" style="background:#e07b39"></span> Medium (3–4 DCs)</div>
+      <div class="mleg-item"><span class="mleg-dot" style="background:#f4c430"></span> Low (1–2 DCs)</div>
+      <div class="mleg-item"><span class="mleg-dot" style="background:#52b788"></span> No Data Centers</div>`;
+  }
+}
+
+// Recolor every polygon in the existing layer without re-fetching GeoJSON
+function applyTimelineToMap() {
+  if (!geojsonLayer || !timelineData) return;
+  const year = timelineYears[activeYearIdx];
+  const yearStr = String(year);
+
+  // Update header stats
+  let totalDC = 0, totalFarm = 0, farmCount = 0;
+  Object.entries(timelineData.counties).forEach(([name, row]) => {
+    totalDC += parseInt(row.dc_count[yearStr] || 0);
+    const f = row.farmland[yearStr];
+    if (f) { totalFarm += f; farmCount++; }
+  });
+  document.getElementById('tl-dc-total').innerHTML  = `🏭 <strong>${totalDC}</strong> Data Centers`;
+  document.getElementById('tl-farm-total').innerHTML = `🌾 <strong>${totalFarm.toLocaleString()}</strong> acres farmland`;
+
+  // Recolor each layer feature
+  geojsonLayer.eachLayer(layer => {
+    const fips = String(layer.feature.id || '').padStart(5,'0');
+    const cd   = fipsLookup[fips];
+    if (!cd) return;
+    const row     = timelineData.counties[cd.county];
+    const dcCount = parseInt((row && row.dc_count[yearStr]) || 0);
+    const color   = getCountyColor(cd.county, yearStr, dcCount);
+    layer.setStyle({ fillColor: color, fillOpacity: 0.76, color: '#fff', weight: 1.5 });
+
+    // Update tooltip
+    const farmAcres = (row && row.farmland[yearStr]) ? row.farmland[yearStr].toLocaleString() + ' ac' : 'N/A';
+    layer.setTooltipContent(
+      `<strong>${cd.county} County — ${year}</strong><br>🏭 ${dcCount} DC(s)<br>🌾 ${farmAcres}`
+    );
+  });
+}
+
+// ── Map init ──────────────────────────────────────────────────────
 function initMap() {
   if (mapInitialized) return;
   mapInitialized = true;
@@ -173,76 +272,109 @@ function initMap() {
     maxZoom: 13
   }).addTo(leafletMap);
 
-  // Build lookup by FIPS for fast access
-  const fipsLookup = {};
+  // FIPS lookup
   COUNTY_DATA.forEach(c => {
     const fips = SC_FIPS[c.county];
     if (fips) fipsLookup[String(fips).padStart(5,'0')] = c;
   });
 
-  // Fetch SC counties GeoJSON from public Census TopoJSON endpoint
-  fetch('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json')
-    .then(r => r.json())
-    .then(geojson => {
-      // Filter to SC only (FIPS starting with "45")
-      const scFeatures = geojson.features.filter(f =>
-        String(f.id).startsWith('45') || String(f.properties.STATE || '').startsWith('45')
-      );
+  // Fetch GeoJSON + timeline data in parallel
+  Promise.all([
+    fetch('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json').then(r => r.json()),
+    fetch('/api/timeline').then(r => r.json()).catch(() => null)
+  ]).then(([geojson, tlData]) => {
+    if (tlData) {
+      timelineData  = tlData;
+      timelineYears = tlData.years || timelineYears;
+      // Sync slider max to number of years available
+      const slider = document.getElementById('year-slider');
+      if (slider) { slider.max = timelineYears.length - 1; slider.value = timelineYears.length - 1; }
+      activeYearIdx = timelineYears.length - 1;
+      document.getElementById('tl-year-label').textContent = timelineYears[activeYearIdx];
+    }
 
-      const layer = L.geoJSON({ type:'FeatureCollection', features: scFeatures }, {
-        style: feature => {
-          const fips = String(feature.id || '').padStart(5,'0');
-          const cd = fipsLookup[fips];
-          return {
-            fillColor: cd ? countyColor(cd.dc_count) : '#ccc',
-            fillOpacity: 0.72,
-            color: '#fff',
-            weight: 1.5
-          };
-        },
-        onEachFeature: (feature, layer) => {
-          const fips = String(feature.id || '').padStart(5,'0');
-          const cd = fipsLookup[fips];
-          if (!cd) return;
-          layer.bindTooltip(`<strong>${cd.county} County</strong><br>${cd.dc_count} DC(s) · $${cd.avg_monthly_cost}/mo`, {
-            className: 'map-tooltip', sticky: true
-          });
-          layer.on({
-            mouseover: e => { e.target.setStyle({ fillOpacity: 0.95, weight: 2.5, color: '#fff' }); },
-            mouseout:  e => { layer.resetStyle ? leafletMap.resetStyle ? null : layer.setStyle({ fillOpacity:.72, weight:1.5, color:'#fff' }) : null; },
-            click:     ()  => showMapCounty(cd)
-          });
-        }
-      }).addTo(leafletMap);
+    const scFeatures = geojson.features.filter(f =>
+      String(f.id).startsWith('45') || String(f.properties.STATE || '').startsWith('45')
+    );
+    const yearStr = String(timelineYears[activeYearIdx]);
 
-      leafletMap.fitBounds(layer.getBounds(), { padding: [10, 10] });
-    })
-    .catch(() => {
-      document.getElementById('sc-map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#888;font-size:.9rem;padding:2rem;text-align:center">Could not load map tiles. Check your internet connection.</div>';
-    });
+    geojsonLayer = L.geoJSON({ type: 'FeatureCollection', features: scFeatures }, {
+      style: feature => {
+        const fips = String(feature.id || '').padStart(5,'0');
+        const cd   = fipsLookup[fips];
+        if (!cd) return { fillColor: '#ccc', fillOpacity: 0.5, color: '#fff', weight: 1 };
+        const row     = timelineData && timelineData.counties[cd.county];
+        const dcCount = parseInt((row && row.dc_count[yearStr]) || cd.dc_count || 0);
+        return {
+          fillColor:   getCountyColor(cd.county, yearStr, dcCount),
+          fillOpacity: 0.76,
+          color:       '#fff',
+          weight:      1.5
+        };
+      },
+      onEachFeature: (feature, lyr) => {
+        const fips = String(feature.id || '').padStart(5,'0');
+        const cd   = fipsLookup[fips];
+        if (!cd) return;
+        const row       = timelineData && timelineData.counties[cd.county];
+        const dcCount   = parseInt((row && row.dc_count[yearStr]) || cd.dc_count || 0);
+        const farmAcres = (row && row.farmland[yearStr]) ? row.farmland[yearStr].toLocaleString() + ' ac' : 'N/A';
+        lyr.bindTooltip(
+          `<strong>${cd.county} County — ${timelineYears[activeYearIdx]}</strong><br>🏭 ${dcCount} DC(s)<br>🌾 ${farmAcres}`,
+          { className: 'map-tooltip', sticky: true }
+        );
+        lyr.on({
+          mouseover: e => e.target.setStyle({ fillOpacity: 0.95, weight: 2.5 }),
+          mouseout:  e => geojsonLayer.resetStyle(e.target),
+          click:     () => showMapCounty(cd)
+        });
+      }
+    }).addTo(leafletMap);
+
+    leafletMap.fitBounds(geojsonLayer.getBounds(), { padding: [10, 10] });
+
+    // Prime the summary stats
+    if (timelineData) applyTimelineToMap();
+  }).catch(() => {
+    document.getElementById('sc-map').innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#888;font-size:.9rem;padding:2rem;text-align:center">Could not load map data. Check your connection.</div>';
+  });
 }
 
 function showMapCounty(cd) {
-  const panel = document.getElementById('map-county-panel');
-  const tier = cd.dc_count >= 5 ? 'high' : cd.dc_count > 0 ? 'med' : 'none';
-  const tierLabel = cd.dc_count >= 5 ? '🔴 High Impact' : cd.dc_count > 0 ? '🟠 Medium Impact' : '🟢 No Data Centers';
+  const panel   = document.getElementById('map-county-panel');
+  const year    = timelineYears[activeYearIdx];
+  const yearStr = String(year);
+  const row     = timelineData && timelineData.counties[cd.county];
+  const dcNow   = parseInt((row && row.dc_count[yearStr]) || cd.dc_count || 0);
+  const dc2002  = parseInt((row && row.dc_count['2002']) || 0);
+  const farm2002 = (row && row.farmland['2002']) || null;
+  const farmNow  = (row && row.farmland[yearStr]) || null;
+  const farmLoss = (farm2002 && farmNow) ? Math.round(farm2002 - farmNow) : null;
+  const farmLossPct = (farm2002 && farmNow) ? ((farm2002 - farmNow) / farm2002 * 100).toFixed(1) : null;
+
+  const tier      = dcNow >= 5 ? 'high' : dcNow > 0 ? 'med' : 'none';
+  const tierLabel = dcNow >= 5 ? '🔴 High Impact' : dcNow > 0 ? '🟠 Medium Impact' : '🟢 No Data Centers';
+
+  const diff    = cd.avg_monthly_cost - AVG_WITHOUT;
+  const diffStr = diff > 0 ? `+$${diff}` : `$${Math.abs(diff)} below`;
+
   const adjHtml = cd.adjacent.map(a => {
     const adj = COUNTY_DATA.find(x => x.county === a);
     const hasDC = adj && adj.dc_count > 0;
     return `<span class="mcp-adj-tag${hasDC?' has-dc':''}">${a}${hasDC?' ('+adj.dc_count+'DC)':''}</span>`;
   }).join('');
 
-  const diff = cd.avg_monthly_cost - AVG_WITHOUT;
-  const diffStr = diff > 0 ? `+$${diff}` : `$${Math.abs(diff)} below`;
-
   panel.innerHTML = `
-    <div class="mcp-county-name">${cd.county} County</div>
+    <div class="mcp-county-name">${cd.county} County <small style="font-weight:400;font-size:.75rem;color:#888">${year}</small></div>
     <span class="mcp-tier-badge ${tier}">${tierLabel}</span>
     <div class="mcp-grid">
-      <div class="mcp-item"><div class="mcp-label">Data Centers</div><div class="mcp-val">${cd.dc_count}</div></div>
-      <div class="mcp-item"><div class="mcp-label">Avg Monthly Cost</div><div class="mcp-val">$${cd.avg_monthly_cost}</div></div>
+      <div class="mcp-item"><div class="mcp-label">Data Centers (${year})</div><div class="mcp-val">${dcNow}</div></div>
+      <div class="mcp-item"><div class="mcp-label">DCs in 2002</div><div class="mcp-val">${dc2002}</div></div>
+      <div class="mcp-item"><div class="mcp-label">Monthly Cost</div><div class="mcp-val">$${cd.avg_monthly_cost}</div></div>
       <div class="mcp-item"><div class="mcp-label">vs. SC Avg (no DC)</div><div class="mcp-val" style="color:${diff>0?'#c1121f':'#2d6a4f'}">${diffStr}/mo</div></div>
-      <div class="mcp-item"><div class="mcp-label">Extra / Year</div><div class="mcp-val" style="color:#c1121f">${diff>0?'+$'+(diff*12):'-'}</div></div>
+      ${farmNow ? `<div class="mcp-item"><div class="mcp-label">Farmland (${year})</div><div class="mcp-val">${farmNow.toLocaleString()} ac</div></div>` : ''}
+      ${farmLoss !== null ? `<div class="mcp-item"><div class="mcp-label">Farmland Lost</div><div class="mcp-val" style="color:#c1121f">-${farmLoss.toLocaleString()} ac (${farmLossPct}%)</div></div>` : ''}
     </div>
     <div class="mcp-adj-label">Adjacent Counties</div>
     <div class="mcp-adj-tags">${adjHtml}</div>

@@ -96,14 +96,36 @@
 <section id="tab-map" class="tab-section">
   <div class="section-header">
     <h2>SC Data Center Impact Map</h2>
-    <p>Hover over counties to see data. Click for full details.</p>
+    <p>Drag the timeline slider to see how data centers grew and farmland shrank from 2002 to 2022.</p>
   </div>
+
+  <!-- Timeline Slider -->
+  <div class="timeline-bar">
+    <div class="tl-labels">
+      <span>2002</span><span>2007</span><span>2012</span><span>2017</span><span>2022</span>
+    </div>
+    <input type="range" id="year-slider" min="0" max="4" step="1" value="4"
+           oninput="onYearSlide(this.value)" class="year-slider">
+    <div class="tl-summary">
+      <span id="tl-year-label" class="tl-year">2022</span>
+      <span id="tl-dc-total" class="tl-stat">🏭 <strong>–</strong> Data Centers</span>
+      <span id="tl-farm-total" class="tl-stat">🌾 <strong>–</strong> acres farmland</span>
+    </div>
+  </div>
+
+  <!-- Toggle: DC mode vs Farmland Loss mode -->
+  <div class="map-mode-toggle">
+    <button class="mode-btn active" id="mode-btn-dc"   onclick="setMapMode('dc')">Data Centers</button>
+    <button class="mode-btn"        id="mode-btn-farm" onclick="setMapMode('farmland')">Farmland Loss</button>
+  </div>
+
   <div class="map-layout">
     <div class="map-wrap">
       <div id="sc-map"></div>
-      <div class="map-legend">
+      <div class="map-legend" id="map-legend">
         <div class="mleg-item"><span class="mleg-dot" style="background:#c1121f"></span> High (5+ DCs)</div>
         <div class="mleg-item"><span class="mleg-dot" style="background:#e07b39"></span> Medium (1–4 DCs)</div>
+        <div class="mleg-item"><span class="mleg-dot" style="background:#f4c430"></span> Low (1–2 DCs)</div>
         <div class="mleg-item"><span class="mleg-dot" style="background:#52b788"></span> No Data Centers</div>
       </div>
     </div>
