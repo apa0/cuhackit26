@@ -41,18 +41,6 @@ def load_master_json() -> list[dict]:
     return cleaned
 
 
-def calculate_pressure_weight(
-    county_dc: int,
-    adjacent_dc_total: int,
-    alpha: float = 0.015,   # 1.5% per direct DC
-    beta: float = 0.35     # 35% spillover weight
-) -> float:
-    """
-    W = 1 + αC + βαΣAi
-    """
-    return 1 + (alpha * county_dc) + (beta * alpha * adjacent_dc_total)
-
-
 def predict_electricity_impact(
     county: str,
     months_to_project: int = 1, # CHANGE NUMBER OF MONTHS TO PREDICT HERE
@@ -155,3 +143,4 @@ def lambda_handler(event, context):
 
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+
