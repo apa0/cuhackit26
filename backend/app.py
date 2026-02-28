@@ -12,7 +12,10 @@ except ImportError:
 
 from routes.map import map_bp
 
-_DATA_PATH = os.path.join(os.path.dirname(__file__), "electricity.json")
+_DATA_PATH      = os.path.join(os.path.dirname(__file__), "electricity.json")
+_FRONTEND_DIR   = os.path.join(os.path.dirname(__file__), "..", "frontend")
+_TEMPLATE_DIR   = os.path.join(_FRONTEND_DIR, "templates")
+_STATIC_DIR     = os.path.join(_FRONTEND_DIR, "static")
 
 
 def _load_county_data():
@@ -21,7 +24,7 @@ def _load_county_data():
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder=_TEMPLATE_DIR, static_folder=_STATIC_DIR)
     CORS(app)
 
     # Register blueprints
