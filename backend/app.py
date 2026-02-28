@@ -195,6 +195,31 @@ def create_app():
         bust_cache()
         return jsonify({"ok": True, "message": "Cache cleared. Next /api/timeline call will re-fetch from NASS."})
 
+    # ── Chatbot (Bedrock Knowledge Base + Claude) ─────────────────────────
+    @app.route("/api/chat", methods=["POST"])
+    def chat():
+        """
+        Retrieves relevant chunks from the Bedrock Knowledge Base then
+        invokes Claude Sonnet to answer the farmer's question.
+
+        Body: { "message": "your question here" }
+        Response: { "reply": "answer text" }
+
+        Required env vars:
+          BEDROCK_KB_ID      — your Bedrock Knowledge Base ID
+          AWS_REGION         — defaults to us-east-1
+          BEDROCK_MODEL_ID   — defaults to anthropic.claude-sonnet-4-20250514-v1:0
+        """
+        from utils.bedrock_chat import chat as bedrock_chat
+
+        body = request.get_json(silent=True) or {}
+        user_msg = body.get("message", "").strip()
+        if not user_msg:
+            return jsonify({"reply": "Please enter a question."}), 400
+
+        reply = bedrock_chat(user_msg)
+        return jsonify({"reply": reply})
+
     return app
 
 
