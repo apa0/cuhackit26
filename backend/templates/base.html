@@ -3,31 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}RootWatch{% endblock %}</title>
+  <title>{% block title %}RootWatch — Your Land. Their Profit.{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
   {% block head %}{% endblock %}
 </head>
 <body>
 
-  <nav class="navbar">
+  <nav class="navbar" id="navbar">
     <div class="nav-brand">
       <span class="nav-logo">🌿</span>
       <span class="nav-title">RootWatch</span>
     </div>
     <div class="nav-tabs">
-      <button class="nav-tab active" data-tab="map">🗺️ Map</button>
+      <button class="nav-tab active" data-tab="home">Home</button>
+      <button class="nav-tab" data-tab="map">🗺️ Map</button>
+      <button class="nav-tab" data-tab="calculator">🌾 Calculator</button>
       <button class="nav-tab" data-tab="analytics">📊 Analytics</button>
       <button class="nav-tab" data-tab="petition">✍️ Petition</button>
       <button class="nav-tab" data-tab="action">📋 Action</button>
       <button class="nav-tab" data-tab="chat">💬 Chat</button>
     </div>
-    <a href="/api/health" class="nav-link" target="_blank">API</a>
+    <button id="sound-toggle" class="sound-btn" title="Toggle sound" onclick="toggleSound()">🔇</button>
   </nav>
 
-  <main class="main-content">
+  <main>
     {% block content %}{% endblock %}
   </main>
 

@@ -1,73 +1,185 @@
 {% extends "base.html" %}
 
-{% block title %}RootWatch — SC Data Center Impact{% endblock %}
+{% block title %}RootWatch — Your Land. Their Profit.{% endblock %}
 
 {% block content %}
+{% set total_dc    = counties | sum(attribute='dc_count') %}
+{% set with_dc     = counties | selectattr('dc_count', 'gt', 0) | list %}
+{% set no_dc       = counties | selectattr('dc_count', 'eq', 0) | list %}
+{% set avg_with    = (with_dc | sum(attribute='avg_monthly_cost') / with_dc|length) | round(0) | int %}
+{% set avg_without = (no_dc   | sum(attribute='avg_monthly_cost') / no_dc|length)   | round(0) | int %}
 
-<!-- ── HERO ──────────────────────────────────────────── -->
-<section class="hero">
-  <h1 class="hero-title">Data Centers Are Raising<br>Your Electric Bill.</h1>
-  <p class="hero-sub">See how South Carolina counties with data centers compare to those without — and what you can do about it.</p>
-  <div class="hero-stats">
-    {% set total_dc = counties | sum(attribute='dc_count') %}
-    {% set with_dc  = counties | selectattr('dc_count', 'gt', 0) | list %}
-    {% set no_dc    = counties | selectattr('dc_count', 'eq', 0) | list %}
-    {% set avg_with    = (with_dc | sum(attribute='avg_monthly_cost') / with_dc|length) | round(0) | int %}
-    {% set avg_without = (no_dc   | sum(attribute='avg_monthly_cost') / no_dc|length)   | round(0) | int %}
-    <div class="stat-pill">
-      <span class="stat-num">{{ total_dc }}</span>
-      <span class="stat-label">Data Centers in SC</span>
+<!-- ── HOME TAB ───────────────────────────────────────── -->
+<section id="tab-home" class="tab-section active">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-field">
+      <div class="wheat-row">
+        {% for i in range(30) %}<span class="wheat">🌾</span>{% endfor %}
+      </div>
     </div>
-    <div class="stat-pill">
-      <span class="stat-num">{{ with_dc | length }}</span>
-      <span class="stat-label">Affected Counties</span>
+    <div class="hero-content">
+      <div class="hero-eyebrow">South Carolina Energy Crisis</div>
+      <h1 class="hero-title">Your Land.<br><span class="hero-accent">Their Profit.</span></h1>
+      <p class="hero-sub">Data centers are quietly raising electricity bills for SC farmers and families — by up to <strong>${{ avg_with - avg_without }}/month</strong>. See which counties are hit hardest and fight back.</p>
+      <div class="hero-actions">
+        <button class="btn-primary" onclick="switchTab('map')">🗺️ See the Impact Map</button>
+        <button class="btn-secondary" onclick="switchTab('calculator')">🌾 Calculate My Cost</button>
+      </div>
     </div>
-    <div class="stat-pill highlight">
-      <span class="stat-num">+${{ avg_with - avg_without }}</span>
-      <span class="stat-label">Avg Overcharge / Month</span>
+
+    <!-- Live money ticker -->
+    <div class="ticker-bar">
+      <span class="ticker-label">⚡ SC residents are overpaying right now:</span>
+      <span class="ticker-amount">$<span id="ticker-val">0</span></span>
+      <span class="ticker-label">this year due to data centers</span>
     </div>
   </div>
-  <div class="hero-actions">
-    <button class="btn-primary" onclick="switchTab('map')">🗺️ Explore the Map</button>
-    <button class="btn-secondary" onclick="switchTab('analytics')">📊 See the Data</button>
+
+  <!-- Stats strip -->
+  <div class="stats-strip">
+    <div class="stat-block reveal">
+      <div class="stat-num" id="stat-dcs">0</div>
+      <div class="stat-label">Data Centers<br>in SC</div>
+    </div>
+    <div class="stat-block reveal">
+      <div class="stat-num" id="stat-counties">0</div>
+      <div class="stat-label">Affected<br>Counties</div>
+    </div>
+    <div class="stat-block reveal highlight">
+      <div class="stat-num">+$<span id="stat-diff">0</span></div>
+      <div class="stat-label">Extra per month<br>near a data center</div>
+    </div>
+    <div class="stat-block reveal">
+      <div class="stat-num" id="stat-year">$0</div>
+      <div class="stat-label">Lost per household<br>per year</div>
+    </div>
+  </div>
+
+  <!-- Scroll story cards -->
+  <div class="story-section">
+    <div class="story-card reveal">
+      <div class="story-icon">🏭</div>
+      <h3>What's Happening?</h3>
+      <p>Massive data centers are being built across South Carolina. They consume as much electricity as small cities — but special utility agreements mean their costs get distributed to everyone else.</p>
+    </div>
+    <div class="story-card reveal">
+      <div class="story-icon">💸</div>
+      <h3>Who Pays?</h3>
+      <p>You do. SC farmers and families in counties with data centers pay an average of <strong>${{ avg_with - avg_without }} more per month</strong> on electricity than those in unaffected counties.</p>
+    </div>
+    <div class="story-card reveal">
+      <div class="story-icon">🌾</div>
+      <h3>Why Farmers?</h3>
+      <p>Agricultural operations use significant electricity for irrigation, cold storage, and equipment. A ${{ avg_with - avg_without }}/month overcharge means thousands of dollars less for seed, equipment, and survival each year.</p>
+    </div>
+    <div class="story-card reveal">
+      <div class="story-icon">⚖️</div>
+      <h3>What Can We Do?</h3>
+      <p>The SC Public Service Commission sets utility rates. Public pressure, petitions, and town hall attendance have changed outcomes before. Your voice — and your signature — matter.</p>
+    </div>
+  </div>
+
+  <div class="home-cta reveal">
+    <h2>Ready to take action?</h2>
+    <p>Explore the data, calculate your personal impact, and add your name to the petition.</p>
+    <div class="home-cta-buttons">
+      <button class="btn-primary" onclick="switchTab('map')">🗺️ Explore Map</button>
+      <button class="btn-primary" onclick="switchTab('calculator')">🌾 My Farm Cost</button>
+      <button class="btn-secondary" onclick="switchTab('petition')">✍️ Sign Petition</button>
+    </div>
   </div>
 </section>
 
 <!-- ── MAP TAB ────────────────────────────────────────── -->
-<section id="tab-map" class="tab-section active">
+<section id="tab-map" class="tab-section">
   <div class="section-header">
-    <h2>SC County Map</h2>
-    <p>Counties colored by data center density. Click any card for details.</p>
+    <h2>SC Data Center Impact Map</h2>
+    <p>Hover over counties to see data. Click for full details.</p>
   </div>
-  <div class="legend">
-    <span class="legend-dot high"></span> High (5+ DCs)
-    <span class="legend-dot med"></span> Medium (1–4 DCs)
-    <span class="legend-dot low"></span> None
-  </div>
-  <div class="county-grid">
-    {% for c in counties | sort(attribute='dc_count', reverse=True) %}
-    {% if c.dc_count >= 5 %}{% set tier = 'high' %}
-    {% elif c.dc_count > 0 %}{% set tier = 'med' %}
-    {% else %}{% set tier = 'low' %}{% endif %}
-    <div class="county-card {{ tier }}" onclick="showCountyDetail('{{ c.county }}', {{ c.dc_count }}, {{ c.avg_monthly_cost }}, {{ c.adjacent | tojson }})">
-      <div class="county-name">{{ c.county }}</div>
-      <div class="county-dcs">{{ c.dc_count }} DC{% if c.dc_count != 1 %}s{% endif %}</div>
-      <div class="county-cost">${{ c.avg_monthly_cost }}/mo</div>
+  <div class="map-layout">
+    <div class="map-wrap">
+      <div id="sc-map"></div>
+      <div class="map-legend">
+        <div class="mleg-item"><span class="mleg-dot" style="background:#c1121f"></span> High (5+ DCs)</div>
+        <div class="mleg-item"><span class="mleg-dot" style="background:#e07b39"></span> Medium (1–4 DCs)</div>
+        <div class="mleg-item"><span class="mleg-dot" style="background:#52b788"></span> No Data Centers</div>
+      </div>
     </div>
-    {% endfor %}
+    <div class="map-sidebar">
+      <div id="map-county-panel" class="map-county-panel">
+        <div class="mcp-placeholder">
+          <span style="font-size:2rem">🗺️</span>
+          <p>Click a county on the map for details</p>
+        </div>
+      </div>
+    </div>
   </div>
+</section>
 
-  <!-- County detail panel -->
-  <div id="county-detail" class="county-detail hidden">
-    <button class="detail-close" onclick="closeDetail()">✕</button>
-    <h3 id="detail-name"></h3>
-    <div class="detail-grid">
-      <div class="detail-item"><span class="detail-label">Data Centers</span><span id="detail-dcs" class="detail-val"></span></div>
-      <div class="detail-item"><span class="detail-label">Avg Monthly Cost</span><span id="detail-cost" class="detail-val"></span></div>
+<!-- ── CALCULATOR TAB ─────────────────────────────────── -->
+<section id="tab-calculator" class="tab-section">
+  <div class="section-header">
+    <h2>🌾 Farm Cost Calculator</h2>
+    <p>See exactly how much extra you're paying because of nearby data centers.</p>
+  </div>
+  <div class="calc-layout">
+    <div class="calc-form-wrap">
+      <div class="calc-form">
+        <div class="form-group">
+          <label>Your County</label>
+          <select id="calc-county">
+            <option value="">Select your county…</option>
+            {% for c in counties | sort(attribute='county') %}
+            <option value="{{ c.county }}" data-cost="{{ c.avg_monthly_cost }}" data-dcs="{{ c.dc_count }}">{{ c.county }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Monthly Electricity Use (kWh)</label>
+          <input type="number" id="calc-kwh" placeholder="e.g. 1200" min="0" />
+          <span class="form-hint">Average SC home: ~1,100 kWh/mo · Small farm: 2,000–5,000 kWh/mo</span>
+        </div>
+        <div class="form-group">
+          <label>Current Monthly Bill ($)</label>
+          <input type="number" id="calc-bill" placeholder="e.g. 175.00" min="0" step="0.01" />
+        </div>
+        <button class="btn-primary full-width" onclick="runCalculator()">⚡ Calculate My Impact</button>
+      </div>
     </div>
-    <div class="detail-adjacent">
-      <span class="detail-label">Adjacent Counties</span>
-      <div id="detail-adj" class="adj-tags"></div>
+    <div class="calc-result hidden" id="calc-result">
+      <div class="calc-result-header">
+        <span id="calc-county-name" class="calc-county-badge"></span>
+      </div>
+      <div class="calc-numbers">
+        <div class="calc-num-block">
+          <div class="calc-big" id="calc-monthly">$0</div>
+          <div class="calc-sublabel">overcharge / month</div>
+        </div>
+        <div class="calc-num-block highlight">
+          <div class="calc-big" id="calc-annual">$0</div>
+          <div class="calc-sublabel">overcharge / year</div>
+        </div>
+        <div class="calc-num-block">
+          <div class="calc-big" id="calc-decade">$0</div>
+          <div class="calc-sublabel">overcharge / 10 years</div>
+        </div>
+      </div>
+      <div class="calc-compare">
+        <div class="calc-bar-wrap">
+          <div class="calc-bar-label">Your county avg</div>
+          <div class="calc-bar-outer"><div class="calc-bar your" id="bar-your"></div></div>
+          <div class="calc-bar-amt" id="bar-your-amt"></div>
+        </div>
+        <div class="calc-bar-wrap">
+          <div class="calc-bar-label">No-DC county avg ${{ avg_without }}</div>
+          <div class="calc-bar-outer"><div class="calc-bar base" id="bar-base" style="width:{{ (avg_without / 250 * 100)|int }}%"></div></div>
+          <div class="calc-bar-amt">${{ avg_without }}/mo</div>
+        </div>
+      </div>
+      <p class="calc-context" id="calc-context"></p>
+      <button class="btn-secondary full-width" onclick="switchTab('petition')">✍️ Sign the Petition to Fix This</button>
     </div>
   </div>
 </section>
@@ -86,7 +198,7 @@
         <option value="name">County Name (A–Z)</option>
       </select>
     </label>
-    <label>Filter:
+    <label>Show:
       <select id="chart-filter" onchange="renderChart()">
         <option value="all">All Counties</option>
         <option value="with">With Data Centers</option>
@@ -98,21 +210,21 @@
     <canvas id="costChart"></canvas>
   </div>
   <div class="analytics-summary">
-    <div class="summary-card">
+    <div class="summary-card reveal">
       <div class="summary-icon">🏭</div>
       <div>
         <div class="summary-val">${{ avg_with }}/mo</div>
         <div class="summary-desc">Avg cost — counties <strong>with</strong> DCs</div>
       </div>
     </div>
-    <div class="summary-card">
+    <div class="summary-card reveal">
       <div class="summary-icon">🏡</div>
       <div>
         <div class="summary-val">${{ avg_without }}/mo</div>
         <div class="summary-desc">Avg cost — counties <strong>without</strong> DCs</div>
       </div>
     </div>
-    <div class="summary-card highlight">
+    <div class="summary-card highlight reveal">
       <div class="summary-icon">⚡</div>
       <div>
         <div class="summary-val">+${{ avg_with - avg_without }}/mo</div>
@@ -126,11 +238,18 @@
 <section id="tab-petition" class="tab-section">
   <div class="section-header">
     <h2>Sign the Petition</h2>
-    <p>Demand that SC hold data centers accountable for rising electricity costs.</p>
+    <p>Demand SC hold data centers accountable for rising electricity costs.</p>
   </div>
   <div class="petition-wrap">
     <div class="petition-quote">
       <blockquote>"Hold Data Centers Accountable for South Carolina Energy Costs — Require transparent reporting and fair rate structures from all large-scale electricity consumers."</blockquote>
+    </div>
+    <div class="petition-progress">
+      <div class="prog-bar-outer"><div class="prog-bar-inner" id="prog-bar" style="width:62%"></div></div>
+      <div class="prog-labels">
+        <span><strong id="sig-count">1,243</strong> signatures</span>
+        <span>Goal: 2,000</span>
+      </div>
     </div>
     <form id="petition-form" class="petition-form">
       <div class="form-row">
@@ -152,12 +271,9 @@
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="btn-primary full-width">✅ Sign the Petition</button>
+      <button type="submit" class="btn-primary full-width">✅ Add My Name</button>
     </form>
     <div id="petition-msg" class="petition-msg hidden"></div>
-    <div class="petition-count">
-      <span id="sig-count">1,243</span> people have already signed
-    </div>
   </div>
 </section>
 
@@ -165,66 +281,66 @@
 <section id="tab-action" class="tab-section">
   <div class="section-header">
     <h2>Take Action</h2>
-    <p>Five steps you can take right now to fight back.</p>
+    <p>Five concrete steps to fight back right now.</p>
   </div>
   <div class="action-steps">
-    <div class="action-step">
+    <div class="action-step reveal">
       <div class="step-num">1</div>
       <div class="step-content">
         <h3>Sign the Petition</h3>
-        <p>Add your name to demand accountability from data centers and the SC Public Service Commission.</p>
+        <p>Add your name to demand accountability from data centers and the SC PSC.</p>
         <button class="btn-secondary" onclick="switchTab('petition')">Sign Now →</button>
       </div>
     </div>
-    <div class="action-step">
+    <div class="action-step reveal">
       <div class="step-num">2</div>
       <div class="step-content">
         <h3>Contact Your County Rep</h3>
-        <p>Send your representative a pre-written email asking them to support energy cost reform.</p>
+        <p>Send a pre-written email asking your representative to support energy cost reform.</p>
         <button class="btn-secondary" onclick="copyEmailTemplate()">📧 Copy Email Template</button>
       </div>
     </div>
-    <div class="action-step">
+    <div class="action-step reveal">
       <div class="step-num">3</div>
       <div class="step-content">
-        <h3>Attend a Town Hall</h3>
-        <p>SC PSC holds public hearings on utility rate changes. Your voice matters.</p>
+        <h3>Attend a PSC Hearing</h3>
+        <p>The SC Public Service Commission holds public hearings on utility rate changes. Show up.</p>
         <a class="btn-secondary" href="https://psc.sc.gov" target="_blank">Find Hearings →</a>
       </div>
     </div>
-    <div class="action-step">
+    <div class="action-step reveal">
       <div class="step-num">4</div>
       <div class="step-content">
         <h3>Share on Social Media</h3>
-        <p>Spread awareness so more SC residents know how data centers affect their bills.</p>
+        <p>Spread the word so more SC residents know how data centers are affecting their bills.</p>
         <div class="share-buttons">
           <button class="btn-share" onclick="shareTwitter()">🐦 Twitter/X</button>
           <button class="btn-share" onclick="shareFacebook()">📘 Facebook</button>
         </div>
       </div>
     </div>
-    <div class="action-step">
+    <div class="action-step reveal">
       <div class="step-num">5</div>
       <div class="step-content">
         <h3>File a PSC Complaint</h3>
-        <p>SC residents can file formal complaints with the Public Service Commission about utility rates.</p>
+        <p>SC residents can file formal complaints about utility rates with the Public Service Commission.</p>
         <a class="btn-secondary" href="https://psc.sc.gov/consumer/consumer-complaints" target="_blank">File Complaint →</a>
       </div>
     </div>
   </div>
-  <div id="email-copied" class="toast hidden">📋 Email template copied to clipboard!</div>
+  <div id="email-copied" class="toast hidden">📋 Email template copied!</div>
 </section>
 
 <!-- ── CHAT TAB ───────────────────────────────────────── -->
 <section id="tab-chat" class="tab-section">
   <div class="section-header">
     <h2>Ask RootWatch AI</h2>
-    <p>Ask anything about SC data centers and electricity costs.</p>
+    <p>Get answers about any SC county's electricity costs and data center impact.</p>
   </div>
   <div class="chat-container">
     <div id="chat-messages" class="chat-messages">
       <div class="chat-msg bot">
-        <div class="msg-bubble">👋 Hi! I'm the RootWatch AI. Ask me about any SC county's electricity costs, data center counts, or how DCs affect your bill.</div>
+        <div class="msg-bubble">👋 Hi! I'm the RootWatch AI. Ask me about any SC county's electricity costs, data center counts, or how DCs affect your farming operation.</div>
       </div>
       <div class="chat-suggestions">
         <button class="suggestion" onclick="sendSuggestion(this)">Which county has the most data centers?</button>
@@ -240,8 +356,11 @@
   </div>
 </section>
 
-<!-- County data for JS -->
 <script>
   const COUNTY_DATA = {{ counties | tojson }};
+  const AVG_WITH    = {{ avg_with }};
+  const AVG_WITHOUT = {{ avg_without }};
+  const TOTAL_DC    = {{ total_dc }};
+  const WITH_DC_COUNT = {{ with_dc | length }};
 </script>
 {% endblock %}
