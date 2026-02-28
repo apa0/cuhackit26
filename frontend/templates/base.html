@@ -29,6 +29,23 @@
       <button class="nav-tab" data-tab="chat">💬 Chat</button>
     </div>
     <button id="sound-toggle" class="sound-btn" title="Toggle sound" onclick="toggleSound()">🔇</button>
+
+    <!-- ── Auth0 user area ── -->
+    <div class="nav-auth">
+      {% if current_user %}
+        <div class="nav-user">
+          {% if current_user.picture %}
+            <img src="{{ current_user.picture }}" alt="avatar" class="nav-avatar" />
+          {% else %}
+            <span class="nav-avatar-placeholder">👤</span>
+          {% endif %}
+          <span class="nav-username">{{ current_user.name or current_user.email }}</span>
+          <a href="/auth/logout" class="auth-btn auth-btn--out">Log out</a>
+        </div>
+      {% else %}
+        <a href="/auth/login" class="auth-btn auth-btn--in">🔐 Log in</a>
+      {% endif %}
+    </div>
   </nav>
 
   <main>

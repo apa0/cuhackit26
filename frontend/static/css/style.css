@@ -741,3 +741,56 @@ button { cursor: pointer; font-family: inherit; }
   .calc-numbers     { grid-template-columns: 1fr; }
   .calc-bar-label   { width: 80px; font-size: .72rem; }
 }
+
+/* ── Auth0 Navbar UI ───────────────────────────────────────────── */
+.nav-auth { display: flex; align-items: center; flex-shrink: 0; }
+
+.auth-btn {
+  display: inline-block;
+  padding: .35rem .85rem;
+  border-radius: 8px;
+  font-size: .8rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background .18s, transform .12s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.auth-btn--in {
+  background: var(--wheat);
+  color: var(--soil);
+}
+.auth-btn--in:hover  { background: var(--wheat-dark); transform: scale(1.03); }
+.auth-btn--out {
+  background: rgba(255,255,255,.15);
+  color: #fff;
+  margin-left: .5rem;
+}
+.auth-btn--out:hover { background: rgba(255,255,255,.28); }
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.nav-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--wheat);
+}
+.nav-avatar-placeholder {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+.nav-username {
+  font-size: .8rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.9);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

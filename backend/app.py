@@ -11,6 +11,7 @@ except ImportError:
     pass  # python-dotenv not installed; rely on real env vars
 
 from routes.map import map_bp
+from routes.auth import auth_bp, init_oauth
 
 _FRONTEND_DIR   = os.path.join(os.path.dirname(__file__), "..", "frontend")
 _TEMPLATE_DIR   = os.path.join(_FRONTEND_DIR, "templates")
@@ -27,8 +28,21 @@ def create_app():
     app = Flask(__name__, template_folder=_TEMPLATE_DIR, static_folder=_STATIC_DIR)
     CORS(app)
 
+    # Secret key required for session (Auth0 tokens stored here)
+    app.secret_key = os.environ.get("APP_SECRET_KEY", "dev-secret-change-me")
+
     # Register blueprints
     app.register_blueprint(map_bp, url_prefix="/api/map")
+    app.register_blueprint(auth_bp, url_prefix="/auth")
+
+    # Bind Auth0 OAuth client
+    init_oauth(app)
+
+    # Inject current user into every Jinja template
+    from flask import session as _session
+    @app.context_processor
+    def inject_user():
+        return {"current_user": _session.get("user")}
 
     # ── Frontend ──────────────────────────────────────────────────────────
     @app.route("/")
