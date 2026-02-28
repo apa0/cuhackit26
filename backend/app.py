@@ -50,44 +50,6 @@ def create_app():
         counties = _load_county_data()
         return render_template("index.html", counties=counties)
 
-    # ── Simple chatbot ────────────────────────────────────────────────────
-    @app.route("/api/chat", methods=["POST"])
-    def chat():
-        body = request.get_json(silent=True) or {}
-        user_msg = body.get("message", "").strip().lower()
-        counties = _load_county_data()
-
-        # Build quick stats
-        with_dc = [c for c in counties if c["dc_count"] > 0]
-        no_dc   = [c for c in counties if c["dc_count"] == 0]
-        avg_with = round(sum(c["avg_monthly_cost"] for c in with_dc) / len(with_dc), 2) if with_dc else 0
-        avg_without = round(sum(c["avg_monthly_cost"] for c in no_dc) / len(no_dc), 2) if no_dc else 0
-        top = sorted(counties, key=lambda c: c["dc_count"], reverse=True)[:3]
-
-        if any(w in user_msg for w in ["most data center", "highest dc", "most dc"]):
-            reply = f"The county with the most data centers is {top[0]['county']} with {top[0]['dc_count']} DCs, followed by {top[1]['county']} ({top[1]['dc_count']}) and {top[2]['county']} ({top[2]['dc_count']})."
-        elif any(w in user_msg for w in ["average", "avg", "cost"]):
-            reply = (f"Counties WITH data centers average ${avg_with}/month. "
-                     f"Counties WITHOUT data centers average ${avg_without}/month — "
-                     f"a difference of ${round(avg_with - avg_without, 2)}/month.")
-        elif any(w in user_msg for w in ["how many", "total", "count"]):
-            total_dc = sum(c["dc_count"] for c in counties)
-            reply = f"There are {total_dc} data centers across {len(with_dc)} of SC's 46 counties."
-        else:
-            # Try to match a county name
-            match = next((c for c in counties if c["county"].lower() in user_msg), None)
-            if match:
-                adj_with_dc = [a for a in match["adjacent"] if any(c["county"] == a and c["dc_count"] > 0 for c in counties)]
-                reply = (f"{match['county']} County has {match['dc_count']} data center(s) "
-                         f"and an average monthly electricity cost of ${match['avg_monthly_cost']}. "
-                         f"Adjacent counties with DCs: {', '.join(adj_with_dc) if adj_with_dc else 'none'}.")
-            else:
-                reply = ("I can answer questions about SC county electricity costs, data center counts, "
-                         "and cost comparisons. Try asking: 'Which county has the most data centers?' "
-                         "or 'What is the average cost in Spartanburg?'")
-
-        return jsonify({"reply": reply})
-
     # ── Petition ──────────────────────────────────────────────────────────
     @app.route("/api/petition", methods=["POST"])
     def petition():
