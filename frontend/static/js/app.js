@@ -1,8 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
-   RootWatch  —  Main App JS
+   Energy Almanac  —  Main App JS
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Constants ────────────────────────────────────────────────── */
 const SC_FIPS = {
   'Abbeville':45001,'Aiken':45003,'Allendale':45005,'Anderson':45007,
   'Bamberg':45009,'Barnwell':45011,'Beaufort':45013,'Berkeley':45015,
@@ -18,7 +17,6 @@ const SC_FIPS = {
   'Williamsburg':45089,'York':45091
 };
 
-/* ── Tab switching ────────────────────────────────────────────── */
 function switchTab(name) {
   document.querySelectorAll('.nav-tab').forEach(t =>
     t.classList.toggle('active', t.dataset.tab === name)
@@ -34,7 +32,6 @@ document.querySelectorAll('.nav-tab').forEach(btn =>
   btn.addEventListener('click', () => switchTab(btn.dataset.tab))
 );
 
-/* ── Scroll reveal ────────────────────────────────────────────── */
 const revealObserver = new IntersectionObserver(entries => {
   entries.forEach(e => {
     if (e.isIntersecting) {
@@ -49,7 +46,6 @@ function attachReveal() {
 }
 attachReveal();
 
-/* ── Animated counters (home stats) ──────────────────────────── */
 function animateCounter(id, target, prefix = '', suffix = '', duration = 1800) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -68,7 +64,7 @@ function animateCounter(id, target, prefix = '', suffix = '', duration = 1800) {
 const homeObserver = new IntersectionObserver(entries => {
   if (entries[0].isIntersecting) {
     animateCounter('stat-dcs',     TOTAL_DC,       '', '');
-    animateCounter('stat-counties', WITH_DC_COUNT, '', '');
+    animateCounter('stat-counties', 43, '', '');
     animateCounter('stat-diff',    AVG_WITH - AVG_WITHOUT, '', '');
     animateCounter('stat-year',    (AVG_WITH - AVG_WITHOUT) * 12, '$', '');
     homeObserver.disconnect();
@@ -78,7 +74,6 @@ const homeObserver = new IntersectionObserver(entries => {
 const statsStrip = document.querySelector('.stats-strip');
 if (statsStrip) homeObserver.observe(statsStrip);
 
-/* ── Live money ticker ────────────────────────────────────────── */
 // Estimate: 46 counties, avg overcharge $28/mo, ~50k affected households
 const AFFECTED_HH    = 120000;
 const MONTHLY_OVERCHARGE = (AVG_WITH - AVG_WITHOUT);
@@ -86,16 +81,6 @@ const YEARLY_LOSS    = AFFECTED_HH * MONTHLY_OVERCHARGE * 12;
 const START_TIME     = Date.now();
 const START_OF_YEAR  = new Date(new Date().getFullYear(), 0, 1).getTime();
 
-function updateTicker() {
-  const elapsed = (Date.now() - START_OF_YEAR) / 1000;
-  const lost = Math.floor(YEARLY_LOSS * (elapsed / (365.25 * 24 * 3600)));
-  const tickerEl = document.getElementById('ticker-val');
-  if (tickerEl) tickerEl.textContent = lost.toLocaleString();
-}
-updateTicker();
-setInterval(updateTicker, 1000);
-
-/* ── Sound ────────────────────────────────────────────────────── */
 let audioCtx = null;
 let ambientNode = null;
 let soundOn = false;
@@ -113,7 +98,6 @@ function toggleSound() {
 
 function startAmbient() {
   if (!audioCtx || ambientNode) return;
-  // Gentle wind: layered oscillators at low freq
   ambientNode = audioCtx.createGain();
   ambientNode.gain.setValueAtTime(0.04, audioCtx.currentTime);
   ambientNode.connect(audioCtx.destination);
@@ -301,8 +285,8 @@ function applyTimelineToMap() {
     const f = row.farmland[yearStr];
     if (f) { totalFarm += f; farmCount++; }
   });
-  document.getElementById('tl-dc-total').innerHTML  = `🏭 <strong>${totalDC}</strong> Data Centers`;
-  document.getElementById('tl-farm-total').innerHTML = `🌾 <strong>${totalFarm.toLocaleString()}</strong> acres farmland`;
+  document.getElementById('tl-dc-total').innerHTML  = `<strong>${totalDC}</strong> Data Centers`;
+  document.getElementById('tl-farm-total').innerHTML = `<strong>${totalFarm.toLocaleString()}</strong> acres farmland`;
 
   // Filter DC blobs: only show in farmland mode for buildings that existed by the selected year
   dcBlobMarkers.forEach(({ marker, est_year }) => {
@@ -613,7 +597,7 @@ async function runCalculator() {
 
   const btn = document.querySelector('#tab-calculator .btn-primary');
   btn.disabled = true;
-  btn.textContent = '⏳ Calculating…';
+  btn.textContent = 'Calculating…';
 
   try {
     const res  = await fetch(`/api/impact/electricity?county=${encodeURIComponent(countyName)}&months=12`);
@@ -657,7 +641,7 @@ async function runCalculator() {
     alert('Network error — please try again.');
   } finally {
     btn.disabled = false;
-    btn.textContent = '⚡ Calculate My Impact';
+    btn.textContent = 'Calculate My Impact';
   }
 }
 
