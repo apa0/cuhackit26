@@ -1,0 +1,6 @@
+flask>=3.0
+flask-cors>=4.0
+boto3>=1.34         # S3 / Textract / Comprehend — optional, lazy-imported
+requests>=2.31      # for future live API calls (USGS, EIA, USDA)
+python-dotenv>=1.0  # load .env for local dev
+gunicorn>=21.0      # production server
