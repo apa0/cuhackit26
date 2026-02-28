@@ -1,12 +1,11 @@
 import json
 import os
 from dotenv import load_dotenv
-import utils.s3 as s3_utils
+# import utils.s3 as s3_utils
 
 load_dotenv()
 
 S3_MASTER_JSON_KEY = os.environ.get("S3_MASTER_JSON_KEY", "data/master_electricity.json")
-
 
 def load_master_json() -> list[dict]:
     """
@@ -28,15 +27,17 @@ def load_master_json() -> list[dict]:
         })
 
     return cleaned
+# def load_master_json():
+#     with open("C:/Users/hanna/PycharmProjects/cuhackit26/backend/electricity.json", "r") as f:
+#         return json.load(f)
 
 
 def predict_electricity_impact(
     county: str,
-    months_to_project: int = 1, # CHANGE NUMBER OF MONTHS TO PREDICT HERE
+    months_to_project: int = 1, # CHANGE NUMBER OF MONTHS FOR PREDICTION HERE
     annual_growth_rate: float = 0.03,
     alpha: float = 0.015,
     beta: float = 0.35,
-    override_base_cost: float | None = None,
 ) -> dict:
 
     rows = load_master_json()
@@ -50,7 +51,7 @@ def predict_electricity_impact(
         raise ValueError(f"County '{county}' not found in dataset.")
 
     county_dc = county_data["dc_count"]
-    base_cost = override_base_cost if override_base_cost is not None else county_data["avg_monthly_cost"]
+    base_cost = county_data["avg_monthly_cost"]
 
     # Sum DCs in adjacent counties
     adjacent_dc_total = 0
@@ -82,6 +83,7 @@ def predict_electricity_impact(
             "growth_factor": round(growth_factor, 6),
         })
 
+    # Projected cost - initial cost
     total_increase = projections[-1]["projected_monthly_bill_usd"] - base_cost
     pct_increase = round(
         (total_increase / base_cost) * 100,
@@ -121,8 +123,6 @@ def lambda_handler(event, context):
         print(f"[lambda_handler] invoked with event: {event}")
         result = predict_electricity_impact(
             county=event["county"],
-            months_to_project=event.get("months_to_project", 1),
-            override_base_cost=event.get("override_base_cost", None),
         )
 
         return {"statusCode": 200, "body": json.dumps(result)}
@@ -133,3 +133,10 @@ def lambda_handler(event, context):
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
 
+
+# if __name__ == "__main__":
+#     result = predict_electricity_impact(
+#         county="Spartanburg"
+#     )
+#
+#     print(json.dumps(result, indent=2))
