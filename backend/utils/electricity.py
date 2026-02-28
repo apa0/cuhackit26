@@ -1,3 +1,4 @@
+import json
 import os
 from dotenv import load_dotenv
 import utils.s3 as s3_utils
@@ -117,8 +118,11 @@ def save_projection_to_s3(result: dict, key: str = "projection.json") -> str:
 
 def lambda_handler(event, context):
     try:
+        print(f"[lambda_handler] invoked with event: {event}")
         result = predict_electricity_impact(
-            county=event["county"]
+            county=event["county"],
+            months_to_project=event.get("months_to_project", 1),
+            override_base_cost=event.get("override_base_cost", None),
         )
 
         return {"statusCode": 200, "body": json.dumps(result)}
