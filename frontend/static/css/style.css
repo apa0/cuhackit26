@@ -872,3 +872,406 @@ button { cursor: pointer; font-family: inherit; }
 }
 .dc-popup-lbl { color: #888; }
 .dc-popup-est  { font-style: italic; color: #aaa; font-size: .7rem; margin-top: .25rem; }
+
+/* ── Analytics — Enhanced ──────────────────────────────────────── */
+.chart-type-btns {
+  display: flex;
+  gap: .5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.ctype-btn {
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+  padding: .4rem 1rem;
+  border-radius: 20px;
+  font-size: .85rem;
+  font-weight: 600;
+  transition: all .18s;
+}
+.ctype-btn:hover  { border-color: var(--green-mid); color: var(--green-mid); }
+.ctype-btn.active { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
+
+.analytics-layout {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.2rem;
+  align-items: start;
+  margin-bottom: 1.5rem;
+}
+
+/* County spotlight card */
+.county-spotlight {
+  width: 230px;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+  transition: all .25s;
+}
+.county-spotlight.hidden { display: none; }
+.spotlight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .75rem;
+  gap: .4rem;
+}
+.spotlight-name { font-weight: 700; font-size: .95rem; }
+.spotlight-badge {
+  padding: .15rem .55rem;
+  border-radius: 20px;
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.spotlight-stats { display: flex; flex-direction: column; gap: .45rem; margin-bottom: .85rem; }
+.sp-row { display: flex; justify-content: space-between; font-size: .83rem; }
+.sp-row span { color: var(--text-muted); }
+.sp-calc-btn { width: 100%; font-size: .8rem; padding: .4rem; }
+
+/* Leaderboards */
+.leaderboard-wrap {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.leaderboard {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+.lb-title {
+  font-weight: 700;
+  font-size: .85rem;
+  margin-bottom: .65rem;
+  color: var(--green-dark);
+}
+.lb-list { list-style: none; display: flex; flex-direction: column; gap: .35rem; }
+.lb-item {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .82rem;
+  padding: .3rem .4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.lb-item:hover { background: var(--green-pale); }
+.lb-rank { font-weight: 800; color: var(--text-muted); min-width: 16px; }
+.lb-county { flex: 1; }
+.lb-val { font-weight: 700; color: var(--green-dark); white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .analytics-layout { grid-template-columns: 1fr; }
+  .county-spotlight { width: 100%; }
+  .leaderboard-wrap { grid-template-columns: 1fr; }
+}
+
+/* ── Analytics — Inline Chat ───────────────────────────────────── */
+.analytics-chat-wrap {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  margin-top: 1.5rem;
+  overflow: hidden;
+}
+.analytics-chat-header {
+  background: var(--green-dark);
+  color: #fff;
+  padding: .75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: .95rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.chat-hint {
+  font-weight: 400;
+  font-size: .8rem;
+  color: rgba(255,255,255,.7);
+}
+.analytics-chat-messages {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  background: var(--bg);
+}
+
+/* ── Change.org Related Petitions ──────────────────────────────── */
+.ext-petitions-wrap {
+  margin-top: 2rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.ext-petitions-header {
+  background: var(--earth);
+  color: #fff;
+  padding: .8rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: .95rem;
+}
+.ext-petitions-header h3 { margin: 0; font-size: .95rem; font-weight: 700; }
+.ext-refresh-btn {
+  background: rgba(255,255,255,.15);
+  border: none;
+  color: #fff;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background .18s;
+}
+.ext-refresh-btn:hover { background: rgba(255,255,255,.3); }
+
+.ext-petitions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.ext-loading {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: .9rem;
+}
+.ext-petition-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  transition: background .15s;
+  position: relative;
+}
+.ext-petition-card:last-child { border-bottom: none; }
+.ext-petition-card:hover { background: var(--bg); }
+.ext-petition-img {
+  width: 72px; height: 72px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.ext-petition-img-placeholder {
+  width: 72px; height: 72px;
+  border-radius: 8px;
+  background: var(--green-pale);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+.ext-petition-body { flex: 1; min-width: 0; }
+.ext-petition-title {
+  font-weight: 700;
+  font-size: .92rem;
+  margin-bottom: .3rem;
+  line-height: 1.4;
+}
+.ext-petition-desc {
+  font-size: .8rem;
+  color: var(--text-muted);
+  margin-bottom: .4rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ext-petition-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: .78rem;
+  color: var(--text-muted);
+  margin-bottom: .35rem;
+  flex-wrap: wrap;
+}
+.ext-sigs { color: var(--green-mid); font-weight: 600; }
+.ext-prog-outer {
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: .2rem;
+}
+.ext-prog-inner {
+  height: 100%;
+  background: var(--green-mid);
+  border-radius: 3px;
+  transition: width .5s;
+}
+.ext-prog-label { font-size: .72rem; color: var(--text-muted); }
+.ext-sign-btn {
+  align-self: center;
+  background: var(--green-dark);
+  color: #fff;
+  padding: .35rem .8rem;
+  border-radius: 20px;
+  font-size: .78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.ext-petition-card:hover .ext-sign-btn { background: var(--green-mid); }
+
+@media (max-width: 600px) {
+  .ext-petition-card { flex-wrap: wrap; }
+  .ext-sign-btn { width: 100%; text-align: center; }
+}
+
+/* ── Take Action Tab ────────────────────────────────────── */
+.action-urgency-banner {
+  background: linear-gradient(90deg, var(--green-dark) 0%, #2e6b3e 100%);
+  color: #fff;
+  padding: .75rem 1.25rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1.4rem;
+  font-size: .95rem;
+  font-weight: 600;
+}
+.action-urgency-banner .urgency-icon { font-size: 1.4rem; flex-shrink: 0; }
+.action-urgency-banner a { color: #c8f0d0; text-decoration: underline; }
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 900px) { .action-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 580px) { .action-grid { grid-template-columns: 1fr; } }
+
+.action-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  transition: box-shadow .15s, transform .15s;
+  position: relative;
+}
+.action-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.12); transform: translateY(-2px); }
+
+.action-card-icon { font-size: 1.6rem; }
+.action-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--green-dark);
+  font-weight: 700;
+}
+.action-card p {
+  margin: 0;
+  font-size: .83rem;
+  color: var(--text-muted);
+  flex: 1;
+  line-height: 1.45;
+}
+.action-card a {
+  display: inline-block;
+  margin-top: .25rem;
+  background: var(--green-dark);
+  color: #fff;
+  padding: .32rem .8rem;
+  border-radius: 20px;
+  font-size: .78rem;
+  font-weight: 700;
+  align-self: flex-start;
+  transition: background .15s;
+  text-decoration: none;
+}
+.action-card a:hover { background: var(--green-mid); }
+.action-card button {
+  margin-top: .25rem;
+  background: var(--green-dark);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  padding: .32rem .8rem;
+  border-radius: 20px;
+  font-size: .78rem;
+  font-weight: 700;
+  align-self: flex-start;
+  transition: background .15s;
+}
+.action-card button:hover { background: var(--green-mid); }
+
+.action-priority-tag {
+  position: absolute;
+  top: .6rem;
+  right: .7rem;
+  font-size: .65rem;
+  font-weight: 800;
+  padding: .15rem .45rem;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.action-priority-tag.high-priority { background: #ffd6d6; color: #b00; }
+
+.action-resources {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: .5rem;
+}
+.action-resources h3 { margin: 0 0 .7rem; font-size: .95rem; color: var(--green-dark); }
+.resource-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+}
+.resource-links a {
+  background: var(--wheat);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: .3rem .85rem;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--green-dark);
+  text-decoration: none;
+  transition: background .15s;
+}
+.resource-links a:hover { background: var(--green-dark); color: #fff; }
+
+#link-copied {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--green-dark);
+  color: #fff;
+  padding: .5rem 1.2rem;
+  border-radius: 24px;
+  font-weight: 700;
+  font-size: .85rem;
+  z-index: 9999;
+  box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  transition: opacity .3s;
+}
+#link-copied.hidden { opacity: 0; pointer-events: none; }

@@ -192,9 +192,18 @@
 <section id="tab-analytics" class="tab-section">
   <div class="section-header">
     <h2>Cost Impact Analytics</h2>
-    <p>Monthly electricity costs across all 46 SC counties.</p>
+    <p>Explore electricity cost data across all 46 SC counties.</p>
   </div>
-  <div class="chart-controls">
+
+  <!-- Chart type switcher -->
+  <div class="chart-type-btns">
+    <button class="ctype-btn active" onclick="setChartType('bar',this)">📊 Bar Chart</button>
+    <button class="ctype-btn" onclick="setChartType('scatter',this)">🔵 DC vs Cost</button>
+    <button class="ctype-btn" onclick="setChartType('donut',this)">🍩 Breakdown</button>
+  </div>
+
+  <!-- Bar / Scatter controls (hidden for donut) -->
+  <div class="chart-controls" id="bar-controls">
     <label>Sort by:
       <select id="chart-sort" onchange="renderChart()">
         <option value="cost">Cost (high → low)</option>
@@ -210,9 +219,44 @@
       </select>
     </label>
   </div>
-  <div class="chart-wrap">
-    <canvas id="costChart"></canvas>
+
+  <!-- Charts + spotlight side-by-side -->
+  <div class="analytics-layout">
+    <div class="chart-wrap" id="chart-wrap-main">
+      <canvas id="costChart"></canvas>
+    </div>
+    <!-- County spotlight: appears when user clicks a bar -->
+    <div class="county-spotlight hidden" id="county-spotlight">
+      <div class="spotlight-header">
+        <span class="spotlight-name" id="sp-name">—</span>
+        <span class="spotlight-badge" id="sp-badge"></span>
+      </div>
+      <div class="spotlight-stats">
+        <div class="sp-row"><span>💵 Avg monthly cost</span><strong id="sp-cost">—</strong></div>
+        <div class="sp-row"><span>🏭 Data centers</span><strong id="sp-dc">—</strong></div>
+        <div class="sp-row"><span>📈 vs no-DC avg</span><strong id="sp-diff">—</strong></div>
+        <div class="sp-row"><span>📅 Annual overcharge</span><strong id="sp-annual">—</strong></div>
+      </div>
+      <button class="btn-secondary sp-calc-btn" onclick="jumpToCalc()">🌾 Use in Calculator →</button>
+    </div>
   </div>
+
+  <!-- Top 5 leaderboard -->
+  <div class="leaderboard-wrap">
+    <div class="leaderboard" id="lb-expensive">
+      <div class="lb-title">⚡ Most Expensive Counties</div>
+      <ol class="lb-list" id="lb-exp-list"></ol>
+    </div>
+    <div class="leaderboard" id="lb-dcs">
+      <div class="lb-title">🏭 Most Data Centers</div>
+      <ol class="lb-list" id="lb-dc-list"></ol>
+    </div>
+    <div class="leaderboard" id="lb-cheapest">
+      <div class="lb-title">✅ Most Affordable Counties</div>
+      <ol class="lb-list" id="lb-cheap-list"></ol>
+    </div>
+  </div>
+
   <div class="analytics-summary">
     <div class="summary-card reveal">
       <div class="summary-icon">🏭</div>
@@ -235,6 +279,29 @@
         <div class="summary-desc">Extra cost per household near a DC</div>
       </div>
     </div>
+  </div>
+
+  <!-- ── Inline Chat ─────────────────────────────────────────── -->
+  <div class="analytics-chat-wrap">
+    <div class="analytics-chat-header">
+      <span>💬 Ask RootWatch AI about these charts</span>
+      <span class="chat-hint">Click any bar or leaderboard row to get county-specific questions</span>
+    </div>
+    <div id="chat-messages" class="chat-messages analytics-chat-messages">
+      <div class="chat-msg bot">
+        <div class="msg-bubble">👋 Hi! I'm the RootWatch AI. Click a county on the chart above — or ask me anything about SC electricity costs and data centers.</div>
+      </div>
+      <div class="chat-suggestions" id="chat-suggestions">
+        <button class="suggestion" onclick="sendSuggestion(this)">Which county has the most data centers?</button>
+        <button class="suggestion" onclick="sendSuggestion(this)">What is the average cost difference?</button>
+        <button class="suggestion" onclick="sendSuggestion(this)">Tell me about Spartanburg</button>
+        <button class="suggestion" onclick="sendSuggestion(this)">How many total data centers are in SC?</button>
+      </div>
+    </div>
+    <form id="chat-form" class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Ask about any SC county or the charts above…" autocomplete="off" />
+      <button type="submit" class="btn-send">Send →</button>
+    </form>
   </div>
 </section>
 
@@ -281,86 +348,129 @@
     </form>
     <div id="petition-msg" class="petition-msg hidden"></div>
   </div>
+
+  <!-- Related Change.org petitions -->
+  <div class="ext-petitions-wrap">
+    <div class="ext-petitions-header">
+      <h3>🔗 Related Petitions on Change.org</h3>
+      <button class="ext-refresh-btn" onclick="loadExternalPetitions(true)" title="Refresh">🔄</button>
+    </div>
+    <div id="ext-petitions-list" class="ext-petitions-list">
+      <div class="ext-loading">Loading related petitions…</div>
+    </div>
+  </div>
 </section>
 
 <!-- ── ACTION TAB ─────────────────────────────────────── -->
 <section id="tab-action" class="tab-section">
   <div class="section-header">
     <h2>Take Action</h2>
-    <p>Five concrete steps to fight back right now.</p>
+    <p>Every step matters. Here's exactly what you can do right now.</p>
   </div>
-  <div class="action-steps">
-    <div class="action-step reveal">
-      <div class="step-num">1</div>
-      <div class="step-content">
-        <h3>Sign the Petition</h3>
-        <p>Add your name to demand accountability from data centers and the SC PSC.</p>
-        <button class="btn-secondary" onclick="switchTab('petition')">Sign Now →</button>
+
+  <!-- Urgency banner -->
+  <div class="action-urgency-banner">
+    ⚡ SC PSC rate hearings are ongoing — <strong>public comments close soon.</strong>
+    <a href="https://psc.sc.gov" target="_blank">Submit yours now →</a>
+  </div>
+
+  <!-- Priority actions grid -->
+  <div class="action-grid">
+
+    <div class="action-card reveal high-priority">
+      <div class="action-card-icon">✍️</div>
+      <div class="action-priority-tag">Most Impactful</div>
+      <h3>Sign the Petition</h3>
+      <p>Add your name to demand accountability from data centers and the SC PSC. Every signature counts toward regulatory change.</p>
+      <button class="btn-primary" onclick="switchTab('petition')">Sign Now →</button>
+    </div>
+
+    <div class="action-card reveal">
+      <div class="action-card-icon">📧</div>
+      <h3>Email Your Rep</h3>
+      <p>Send a pre-written message to your SC state representative urging support for fair utility rate reform.</p>
+      <div class="action-btn-group">
+        <button class="btn-secondary" onclick="copyEmailTemplate()">📋 Copy Template</button>
+        <a class="btn-secondary" href="https://www.scstatehouse.gov/member.php?chamber=H" target="_blank">Find Your Rep →</a>
       </div>
     </div>
-    <div class="action-step reveal">
-      <div class="step-num">2</div>
-      <div class="step-content">
-        <h3>Contact Your County Rep</h3>
-        <p>Send a pre-written email asking your representative to support energy cost reform.</p>
-        <button class="btn-secondary" onclick="copyEmailTemplate()">📧 Copy Email Template</button>
+
+    <div class="action-card reveal">
+      <div class="action-card-icon">📞</div>
+      <h3>Call the PSC</h3>
+      <p>A 2-minute phone call to the SC Public Service Commission carries more weight than an email. Tell them you oppose unfair rate structures.</p>
+      <a class="btn-secondary" href="tel:+18037376800">📞 (803) 737-6800</a>
+    </div>
+
+    <div class="action-card reveal">
+      <div class="action-card-icon">🏛️</div>
+      <h3>Attend a PSC Hearing</h3>
+      <p>The SC PSC holds public hearings on utility rate changes. In-person testimony has the highest impact — show up and speak for 3 minutes.</p>
+      <a class="btn-secondary" href="https://psc.sc.gov" target="_blank">Find Upcoming Hearings →</a>
+    </div>
+
+    <div class="action-card reveal">
+      <div class="action-card-icon">📝</div>
+      <h3>File a PSC Complaint</h3>
+      <p>SC residents can formally complain about utility rate increases to the Public Service Commission. Complaints become part of the official record.</p>
+      <a class="btn-secondary" href="https://psc.sc.gov/consumer/consumer-complaints" target="_blank">File Online →</a>
+    </div>
+
+    <div class="action-card reveal">
+      <div class="action-card-icon">📰</div>
+      <h3>Contact Local Media</h3>
+      <p>Tip off SC journalists about rising electricity costs. Press coverage drives legislative action faster than almost anything else.</p>
+      <div class="action-btn-group">
+        <a class="btn-secondary" href="mailto:tips@thestate.com?subject=SC%20Data%20Centers%20Raising%20Electricity%20Bills" target="_blank">The State →</a>
+        <a class="btn-secondary" href="mailto:news@postandcourier.com?subject=SC%20Data%20Centers%20Raising%20Electricity%20Bills" target="_blank">Post & Courier →</a>
       </div>
     </div>
-    <div class="action-step reveal">
-      <div class="step-num">3</div>
-      <div class="step-content">
-        <h3>Attend a PSC Hearing</h3>
-        <p>The SC Public Service Commission holds public hearings on utility rate changes. Show up.</p>
-        <a class="btn-secondary" href="https://psc.sc.gov" target="_blank">Find Hearings →</a>
+
+    <div class="action-card reveal">
+      <div class="action-card-icon">🌐</div>
+      <h3>Share This Map</h3>
+      <p>Spread the word so more SC residents see which counties are hit hardest. Share RootWatch on social media with the data.</p>
+      <div class="share-buttons">
+        <button class="btn-share" onclick="shareTwitter()">🐦 Twitter/X</button>
+        <button class="btn-share" onclick="shareFacebook()">📘 Facebook</button>
+        <button class="btn-share" onclick="copyLink()">🔗 Copy Link</button>
       </div>
     </div>
-    <div class="action-step reveal">
-      <div class="step-num">4</div>
-      <div class="step-content">
-        <h3>Share on Social Media</h3>
-        <p>Spread the word so more SC residents know how data centers are affecting their bills.</p>
-        <div class="share-buttons">
-          <button class="btn-share" onclick="shareTwitter()">🐦 Twitter/X</button>
-          <button class="btn-share" onclick="shareFacebook()">📘 Facebook</button>
-        </div>
-      </div>
+
+    <div class="action-card reveal">
+      <div class="action-card-icon">👥</div>
+      <h3>Organize Your Community</h3>
+      <p>Talk to neighbors, farmers, and local businesses in your county. Community organizing is how grassroots campaigns win. Download our one-pager to share.</p>
+      <button class="btn-secondary" onclick="downloadFactsheet()">📄 Download Fact Sheet</button>
     </div>
-    <div class="action-step reveal">
-      <div class="step-num">5</div>
-      <div class="step-content">
-        <h3>File a PSC Complaint</h3>
-        <p>SC residents can file formal complaints about utility rates with the Public Service Commission.</p>
-        <a class="btn-secondary" href="https://psc.sc.gov/consumer/consumer-complaints" target="_blank">File Complaint →</a>
-      </div>
+
+    <div class="action-card reveal">
+      <div class="action-card-icon">🧑‍⚖️</div>
+      <h3>Contact Your Senator</h3>
+      <p>State senators sit on committees that oversee utility regulation. Reaching them directly can push a bill forward.</p>
+      <a class="btn-secondary" href="https://www.scstatehouse.gov/member.php?chamber=S" target="_blank">Find Your Senator →</a>
+    </div>
+
+  </div>
+
+  <!-- Resource links row -->
+  <div class="action-resources">
+    <h3>📚 Useful Resources</h3>
+    <div class="resource-links">
+      <a href="https://psc.sc.gov" target="_blank" class="resource-link">SC Public Service Commission</a>
+      <a href="https://www.scstatehouse.gov" target="_blank" class="resource-link">SC State House</a>
+      <a href="https://www.sce.com" target="_blank" class="resource-link">SC Electric & Gas</a>
+      <a href="https://www.foe.org/energy/" target="_blank" class="resource-link">Friends of the Earth</a>
+      <a href="https://www.sierraclub.org/south-carolina" target="_blank" class="resource-link">Sierra Club SC</a>
+      <a href="https://cleanpower.org" target="_blank" class="resource-link">Clean Power Advocacy</a>
     </div>
   </div>
+
   <div id="email-copied" class="toast hidden">📋 Email template copied!</div>
+  <div id="link-copied"  class="toast hidden">🔗 Link copied!</div>
 </section>
 
-<!-- ── CHAT TAB ───────────────────────────────────────── -->
-<section id="tab-chat" class="tab-section">
-  <div class="section-header">
-    <h2>Ask RootWatch AI</h2>
-    <p>Get answers about any SC county's electricity costs and data center impact.</p>
-  </div>
-  <div class="chat-container">
-    <div id="chat-messages" class="chat-messages">
-      <div class="chat-msg bot">
-        <div class="msg-bubble">👋 Hi! I'm the RootWatch AI. Ask me about any SC county's electricity costs, data center counts, or how DCs affect your farming operation.</div>
-      </div>
-      <div class="chat-suggestions">
-        <button class="suggestion" onclick="sendSuggestion(this)">Which county has the most data centers?</button>
-        <button class="suggestion" onclick="sendSuggestion(this)">What is the average cost difference?</button>
-        <button class="suggestion" onclick="sendSuggestion(this)">Tell me about Spartanburg</button>
-        <button class="suggestion" onclick="sendSuggestion(this)">How many total data centers are in SC?</button>
-      </div>
-    </div>
-    <form id="chat-form" class="chat-input-row">
-      <input type="text" id="chat-input" placeholder="Ask about any SC county…" autocomplete="off" />
-      <button type="submit" class="btn-send">Send →</button>
-    </form>
-  </div>
-</section>
+
 
 <script>
   const COUNTY_DATA = {{ counties | tojson }};

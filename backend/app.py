@@ -62,6 +62,20 @@ def create_app():
         # TODO: persist to DynamoDB / S3
         return jsonify({"ok": True, "message": f"Thank you, {name}! Your signature has been recorded."})
 
+    # ── External petitions (Change.org scrape) ────────────────────────────
+    @app.route("/api/petitions/external")
+    def external_petitions():
+        from utils.changeorg import fetch_related_petitions
+        petitions = fetch_related_petitions()
+        return jsonify({"ok": True, "petitions": petitions})
+
+    @app.route("/api/petitions/refresh")
+    def refresh_petitions():
+        from utils.changeorg import bust_cache, fetch_related_petitions
+        bust_cache()
+        petitions = fetch_related_petitions()
+        return jsonify({"ok": True, "petitions": petitions})
+
     # ── Health / AWS ──────────────────────────────────────────────────────
     @app.route("/api/health")
     def health():

@@ -28,6 +28,7 @@ function switchTab(name) {
   );
   if (name === 'analytics') setTimeout(renderChart, 80);
   if (name === 'map' && !mapInitialized) initMap();
+  if (name === 'petition') loadExternalPetitions();
 }
 
 document.querySelectorAll('.nav-tab').forEach(btn =>
@@ -667,10 +668,21 @@ if (_calcCountyEl) _calcCountyEl.addEventListener('keydown', e => { if (e.key ==
 
 /* ── Analytics Chart ──────────────────────────────────────────── */
 let chartInstance = null;
+let currentChartType = 'bar';
+let _lastBarData = [];   // kept so spotlight can reference it
+
+function setChartType(type, btn) {
+  currentChartType = type;
+  document.querySelectorAll('.ctype-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const controls = document.getElementById('bar-controls');
+  if (controls) controls.style.display = (type === 'donut') ? 'none' : '';
+  renderChart();
+}
 
 function renderChart() {
-  const sortBy = document.getElementById('chart-sort').value;
-  const filter = document.getElementById('chart-filter').value;
+  const sortBy = (document.getElementById('chart-sort') || {}).value || 'cost';
+  const filter = (document.getElementById('chart-filter') || {}).value || 'all';
 
   let data = [...COUNTY_DATA];
   if      (filter === 'with')    data = data.filter(c => c.dc_count > 0);
@@ -680,54 +692,159 @@ function renderChart() {
   else if (sortBy === 'dc')   data.sort((a,b) => b.dc_count - a.dc_count);
   else                         data.sort((a,b) => a.county.localeCompare(b.county));
 
-  const labels = data.map(c => c.county);
-  const costs  = data.map(c => c.avg_monthly_cost);
-  const colors = data.map(c =>
-    c.dc_count >= 5 ? 'rgba(193,18,31,.8)' :
-    c.dc_count > 0  ? 'rgba(224,123,57,.8)' :
-                      'rgba(82,183,136,.8)'
-  );
-
   const ctx = document.getElementById('costChart').getContext('2d');
   if (chartInstance) chartInstance.destroy();
-  chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Avg Monthly Cost ($)',
-        data: costs,
-        backgroundColor: colors,
-        borderRadius: 5,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: ctx => ctx[0].label + ' County',
-            afterLabel: ctx => {
-              const c = data[ctx.dataIndex];
-              return `Data Centers: ${c.dc_count}\nVs. no-DC avg: ${c.avg_monthly_cost > AVG_WITHOUT ? '+' : ''}$${c.avg_monthly_cost - AVG_WITHOUT}/mo`;
+
+  if (currentChartType === 'bar') {
+    _lastBarData = data;
+    const labels = data.map(c => c.county);
+    const costs  = data.map(c => c.avg_monthly_cost);
+    const colors = data.map(c =>
+      c.dc_count >= 5 ? 'rgba(193,18,31,.85)' :
+      c.dc_count > 0  ? 'rgba(224,123,57,.85)' :
+                        'rgba(82,183,136,.85)'
+    );
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Avg Monthly Cost ($)', data: costs, backgroundColor: colors, borderRadius: 5 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        onClick: (evt, elements) => {
+          if (elements.length) showSpotlight(_lastBarData[elements[0].index]);
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            title: c => c[0].label + ' County',
+            afterLabel: c => {
+              const co = data[c.dataIndex];
+              return `Data Centers: ${co.dc_count}\nVs no-DC avg: ${co.avg_monthly_cost > AVG_WITHOUT ? '+' : ''}$${co.avg_monthly_cost - AVG_WITHOUT}/mo`;
             }
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { maxRotation: 55, font: { size: 9 } } },
-        y: {
-          beginAtZero: false,
-          min: 90,
-          ticks: { callback: v => '$' + v },
-          grid: { color: 'rgba(0,0,0,.05)' }
+          }}
+        },
+        scales: {
+          x: { ticks: { maxRotation: 55, font: { size: 9 } } },
+          y: { beginAtZero: false, min: 90, ticks: { callback: v => '$' + v }, grid: { color: 'rgba(0,0,0,.05)' } }
         }
       }
-    }
-  });
+    });
+
+  } else if (currentChartType === 'scatter') {
+    const allData = [...COUNTY_DATA];
+    const points = allData.map(c => ({ x: c.dc_count, y: c.avg_monthly_cost, county: c.county }));
+    chartInstance = new Chart(ctx, {
+      type: 'scatter',
+      data: { datasets: [{
+        label: 'Counties',
+        data: points,
+        backgroundColor: points.map(p =>
+          p.x >= 5 ? 'rgba(193,18,31,.8)' : p.x > 0 ? 'rgba(224,123,57,.8)' : 'rgba(82,183,136,.8)'
+        ),
+        pointRadius: 7, pointHoverRadius: 10,
+      }]},
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: c => `${c.raw.county}: ${c.raw.x} DCs · $${c.raw.y}/mo`
+          }}
+        },
+        scales: {
+          x: { title: { display: true, text: 'Number of Data Centers' }, ticks: { stepSize: 1 } },
+          y: { title: { display: true, text: 'Avg Monthly Cost ($)' }, ticks: { callback: v => '$' + v } }
+        }
+      }
+    });
+
+  } else if (currentChartType === 'donut') {
+    const allData = [...COUNTY_DATA];
+    const high   = allData.filter(c => c.dc_count >= 5).length;
+    const medium = allData.filter(c => c.dc_count > 0 && c.dc_count < 5).length;
+    const none   = allData.filter(c => c.dc_count === 0).length;
+    chartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['High Impact (5+ DCs)', 'Some Impact (1–4 DCs)', 'No Data Centers'],
+        datasets: [{
+          data: [high, medium, none],
+          backgroundColor: ['rgba(193,18,31,.85)', 'rgba(224,123,57,.85)', 'rgba(82,183,136,.85)'],
+          borderWidth: 2, borderColor: '#fff',
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 18, font: { size: 13 } } },
+          tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw} counties` } }
+        },
+        cutout: '62%',
+      }
+    });
+  }
+
+  buildLeaderboards();
 }
+
+function showSpotlight(county) {
+  const sp = document.getElementById('county-spotlight');
+  if (!sp) return;
+  const diff = county.avg_monthly_cost - AVG_WITHOUT;
+  document.getElementById('sp-name').textContent = county.county + ' County';
+  document.getElementById('sp-badge').textContent = county.dc_count > 0 ? `${county.dc_count} DC${county.dc_count>1?'s':''}` : 'No DCs';
+  document.getElementById('sp-badge').style.background = county.dc_count >= 5 ? '#c1121f' : county.dc_count > 0 ? '#e07b39' : '#52b788';
+  document.getElementById('sp-cost').textContent = `$${county.avg_monthly_cost}/mo`;
+  document.getElementById('sp-dc').textContent = county.dc_count;
+  document.getElementById('sp-diff').textContent = (diff >= 0 ? '+' : '') + `$${diff}/mo`;
+  document.getElementById('sp-diff').style.color = diff > 0 ? '#c1121f' : '#52b788';
+  document.getElementById('sp-annual').textContent = diff > 0 ? `$${diff * 12}/yr extra` : 'Below average';
+  sp.classList.remove('hidden');
+  sp.dataset.county = county.county;
+
+  // Inject context-aware suggestions into the chat
+  const suggBox = document.getElementById('chat-suggestions');
+  if (suggBox) {
+    suggBox.innerHTML = [
+      `Tell me about ${county.county} County`,
+      `Why does ${county.county} have ${county.dc_count} data center${county.dc_count !== 1 ? 's' : ''}?`,
+      `How does ${county.county}'s cost compare to the SC average?`,
+      `What can farmers in ${county.county} do about high electricity costs?`,
+    ].map(q => `<button class="suggestion" onclick="sendSuggestion(this)">${q}</button>`).join('');
+  }
+}
+
+function jumpToCalc() {
+  const sp = document.getElementById('county-spotlight');
+  if (!sp) return;
+  switchTab('calculator');
+  setTimeout(() => {
+    const sel = document.getElementById('calc-county');
+    if (sel) { sel.value = sp.dataset.county; sel.dispatchEvent(new Event('change')); }
+  }, 150);
+}
+
+function buildLeaderboards() {
+  const sorted = [...COUNTY_DATA].sort((a,b) => b.avg_monthly_cost - a.avg_monthly_cost);
+  const sortedDC = [...COUNTY_DATA].sort((a,b) => b.dc_count - a.dc_count);
+  const cheapest = [...COUNTY_DATA].sort((a,b) => a.avg_monthly_cost - b.avg_monthly_cost);
+
+  function fillList(listId, items, labelFn) {
+    const el = document.getElementById(listId);
+    if (!el) return;
+    el.innerHTML = items.slice(0,5).map((c,i) =>
+      `<li class="lb-item" onclick="showSpotlight(COUNTY_DATA.find(x=>x.county==='${c.county}'))">
+        <span class="lb-rank">${i+1}</span>
+        <span class="lb-county">${c.county}</span>
+        <span class="lb-val">${labelFn(c)}</span>
+      </li>`
+    ).join('');
+  }
+
+  fillList('lb-exp-list',  sorted,   c => `$${c.avg_monthly_cost}/mo`);
+  fillList('lb-dc-list',   sortedDC.filter(c => c.dc_count > 0), c => `${c.dc_count} DCs`);
+  fillList('lb-cheap-list', cheapest, c => `$${c.avg_monthly_cost}/mo`);
+}
+
 
 /* ── Petition ─────────────────────────────────────────────────── */
 let sigCount = 1243;
@@ -787,6 +904,41 @@ function shareTwitter() {
 function shareFacebook() {
   window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(window.location.href), '_blank');
 }
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    const t = document.getElementById('link-copied');
+    if (t) { t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 2500); }
+  });
+}
+function downloadFactsheet() {
+  // Build a simple text fact-sheet and trigger download
+  const lines = [
+    'RootWatch — SC Data Center Energy Impact Fact Sheet',
+    '====================================================',
+    '',
+    `Data centers in South Carolina are driving up electricity costs for residents and farmers.`,
+    '',
+    `KEY FACTS:`,
+    `• ${TOTAL_DC} data centers across SC`,
+    `• ${WITH_DC_COUNT} of 46 counties affected`,
+    `• Avg monthly cost WITH data centers:    $${AVG_WITH}`,
+    `• Avg monthly cost WITHOUT data centers: $${AVG_WITHOUT}`,
+    `• Overcharge per household: +$${AVG_WITH - AVG_WITHOUT}/month = $${(AVG_WITH - AVG_WITHOUT)*12}/year`,
+    '',
+    'TAKE ACTION:',
+    '• Sign the petition at: ' + window.location.href,
+    '• Contact SC PSC: (803) 737-6800  |  psc.sc.gov',
+    '• File a complaint: psc.sc.gov/consumer/consumer-complaints',
+    '• Find your rep: scstatehouse.gov',
+    '',
+    'Data source: SC Public Service Commission / RootWatch 2026',
+  ].join('\n');
+  const blob = new Blob([lines], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'RootWatch-FactSheet.txt';
+  a.click();
+}
 
 /* ── Chatbot ──────────────────────────────────────────────────── */
 const chatMessages = document.getElementById('chat-messages');
@@ -826,6 +978,48 @@ document.getElementById('chat-form').addEventListener('submit', e => {
 });
 
 function sendSuggestion(btn) { sendMessage(btn.textContent); }
+
+/* ── External Petitions (Change.org) ──────────────────────────── */
+let _extPetitionsLoaded = false;
+
+async function loadExternalPetitions(force = false) {
+  if (_extPetitionsLoaded && !force) return;
+  const list = document.getElementById('ext-petitions-list');
+  if (!list) return;
+  list.innerHTML = '<div class="ext-loading">⏳ Loading related petitions from Change.org…</div>';
+  try {
+    const url = force ? '/api/petitions/refresh' : '/api/petitions/external';
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (!data.ok || !data.petitions.length) {
+      list.innerHTML = '<div class="ext-loading">No related petitions found right now. <a href="https://www.change.org/search?q=south+carolina+electricity" target="_blank">Search Change.org →</a></div>';
+      return;
+    }
+    list.innerHTML = data.petitions.map(p => {
+      const pct = p.goal > 0 ? Math.min(100, Math.round(p.signatures / p.goal * 100)) : 0;
+      const sigFmt = p.signatures > 0 ? p.signatures.toLocaleString() + ' signatures' : 'New petition';
+      return `
+        <a class="ext-petition-card" href="${p.url}" target="_blank" rel="noopener">
+          ${p.image ? `<img class="ext-petition-img" src="${p.image}" alt="" loading="lazy"/>` : '<div class="ext-petition-img-placeholder">📝</div>'}
+          <div class="ext-petition-body">
+            <div class="ext-petition-title">${p.title}</div>
+            ${p.description ? `<div class="ext-petition-desc">${p.description}</div>` : ''}
+            <div class="ext-petition-meta">
+              <span class="ext-sigs">✏️ ${sigFmt}</span>
+              <span class="ext-creator">by ${p.creator}</span>
+            </div>
+            ${p.goal > 0 ? `
+            <div class="ext-prog-outer"><div class="ext-prog-inner" style="width:${pct}%"></div></div>
+            <div class="ext-prog-label">${pct}% of ${p.goal.toLocaleString()} goal</div>` : ''}
+          </div>
+          <span class="ext-sign-btn">Sign →</span>
+        </a>`;
+    }).join('');
+    _extPetitionsLoaded = true;
+  } catch {
+    list.innerHTML = '<div class="ext-loading">⚠️ Could not load petitions. <a href="https://www.change.org/search?q=south+carolina+electricity" target="_blank">Search manually →</a></div>';
+  }
+}
 
 /* ── Navbar shrink on scroll ──────────────────────────────────── */
 window.addEventListener('scroll', () => {
