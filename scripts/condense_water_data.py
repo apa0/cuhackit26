@@ -131,7 +131,7 @@ print(f"    Sample ({sample['county']}): {sample['water_access_points']} access 
 print("\nUploading to S3...")
 try:
     from dotenv import load_dotenv
-    load_dotenv(os.path.join(ROOT, "backend", ".env"))
+    load_dotenv(os.path.join(ROOT, ".env"))
 except ImportError:
     pass
 

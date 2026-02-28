@@ -23,21 +23,16 @@ logger = logging.getLogger(__name__)
 _BUCKET = os.environ.get("S3_BUCKET_NAME", "rootwatch-documents")
 _REGION = os.environ.get("AWS_REGION", "us-east-1")
 
-# Lazy import so the app starts without boto3 if S3 is not needed
-_s3_client = None
-
 
 def _get_client():
-    global _s3_client
-    if _s3_client is None:
-        try:
-            import boto3
-            _s3_client = boto3.client("s3", region_name=_REGION)
-        except ImportError:
-            raise RuntimeError(
-                "boto3 is required for S3 operations. Install it with: pip install boto3"
-            )
-    return _s3_client
+    """Always create a fresh boto3 client so rotated/refreshed credentials are picked up."""
+    try:
+        import boto3
+        return boto3.client("s3", region_name=_REGION)
+    except ImportError:
+        raise RuntimeError(
+            "boto3 is required for S3 operations. Install it with: pip install boto3"
+        )
 
 
 # ---------------------------------------------------------------------------

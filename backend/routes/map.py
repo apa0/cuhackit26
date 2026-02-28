@@ -3,8 +3,7 @@ routes/map.py
 
 Map-related endpoints for RootWatch API.
 
-Water data is loaded from S3 (primary) with a local-file fallback for dev.
-S3 keys are configurable via environment variables:
+All data is loaded exclusively from S3. S3 keys are configurable via env vars:
   S3_WATER_ACCESS_KEY   default: data/water/sc_water_access_slim.geojson
   S3_WATER_INTAKES_KEY  default: data/water/Public_Water_Supply_Intakes.geojson
   S3_WATER_COUNTY_KEY   default: data/water/sc_water_by_county.json
@@ -19,43 +18,26 @@ logger = logging.getLogger(__name__)
 
 map_bp = Blueprint("map", __name__)
 
-_ROUTES_DIR  = os.path.dirname(os.path.abspath(__file__))
-_BACKEND_DIR = os.path.dirname(_ROUTES_DIR)
-_WATER_DIR   = os.path.abspath(os.path.join(_BACKEND_DIR, "..", "data", "water"))
-
 # S3 keys (override via env vars)
 _S3_WATER_ACCESS_KEY  = os.environ.get("S3_WATER_ACCESS_KEY",  "data/water/sc_water_access_slim.geojson")
 _S3_WATER_INTAKES_KEY = os.environ.get("S3_WATER_INTAKES_KEY", "data/water/Public_Water_Supply_Intakes.geojson")
 _S3_WATER_COUNTY_KEY  = os.environ.get("S3_WATER_COUNTY_KEY",  "data/water/sc_water_by_county.json")
 
-# Local fallback paths (used if S3 is unavailable)
-_LOCAL_WATER_ACCESS  = os.path.join(_WATER_DIR, "sc_water_access_slim.geojson")
-_LOCAL_WATER_INTAKES = os.path.join(_WATER_DIR, "original", "Public_Water_Supply_Intakes.geojson")
-_LOCAL_WATER_COUNTY  = os.path.join(_WATER_DIR, "sc_water_by_county.json")
-
 # Simple in-memory cache: { s3_key: parsed_data }
 _cache: dict = {}
 
 
-def _load_from_s3_or_local(s3_key: str, local_fallback: str):
+def _load_from_s3(s3_key: str):
     """
-    Try S3 first (using s3_utils.get_json). On any failure, fall back to
-    the local file. Results are cached in memory for the process lifetime.
+    Load JSON from S3 and cache in memory for the process lifetime.
+    Raises immediately if S3 is unavailable — no local fallback.
     """
     if s3_key in _cache:
         return _cache[s3_key]
 
-    data = None
-    try:
-        import utils.s3 as s3_utils
-        data = s3_utils.get_json(s3_key)
-        logger.info(f"Loaded {s3_key} from S3")
-    except Exception as e:
-        logger.warning(f"S3 load failed for '{s3_key}': {e} — falling back to local file")
-        with open(local_fallback, "r") as f:
-            data = json.load(f)
-        logger.info(f"Loaded {s3_key} from local fallback: {local_fallback}")
-
+    import utils.s3 as s3_utils
+    data = s3_utils.get_json(s3_key)
+    logger.info(f"Loaded {s3_key} from S3")
     _cache[s3_key] = data
     return data
 
@@ -102,7 +84,7 @@ def water_access():
 
     Example: GET /api/map/water/access?water=Freshwater&county=Richland
     """
-    data = _load_from_s3_or_local(_S3_WATER_ACCESS_KEY, _LOCAL_WATER_ACCESS)
+    data = _load_from_s3(_S3_WATER_ACCESS_KEY)
 
     access_type = request.args.get("type", "").strip().lower()
     water_type  = request.args.get("water", "").strip().lower()
@@ -135,7 +117,7 @@ def water_intakes():
 
     Example: GET /api/map/water/intakes
     """
-    data = _load_from_s3_or_local(_S3_WATER_INTAKES_KEY, _LOCAL_WATER_INTAKES)
+    data = _load_from_s3(_S3_WATER_INTAKES_KEY)
     return Response(
         json.dumps(data, separators=(",", ":")),
         mimetype="application/geo+json",
@@ -152,7 +134,7 @@ def water_by_county(county=None):
     GET /api/map/water/county           — all counties
     GET /api/map/water/county/Richland  — single county
     """
-    data = _load_from_s3_or_local(_S3_WATER_COUNTY_KEY, _LOCAL_WATER_COUNTY)
+    data = _load_from_s3(_S3_WATER_COUNTY_KEY)
     if county:
         match = next((c for c in data if c["county"].lower() == county.lower()), None)
         if not match:
