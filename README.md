@@ -1,6 +1,6 @@
 # RootWatch
 
-An early-warning intelligence platform for South Carolina agriculture planners to detect and respond to data center threats before farms are lost.
+An early-warning intelligence platform for South Carolina agriculture planners to detect and respond to data center threats before farms are lost
 
 ---
 
