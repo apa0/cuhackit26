@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}RootWatch — SC Data Center Impact{% endblock %}
+
+{% block content %}
+
+<!-- ── HERO ──────────────────────────────────────────── -->
+<section class="hero">
+  <h1 class="hero-title">Data Centers Are Raising<br>Your Electric Bill.</h1>
+  <p class="hero-sub">See how South Carolina counties with data centers compare to those without — and what you can do about it.</p>
+  <div class="hero-stats">
+    {% set total_dc = counties | sum(attribute='dc_count') %}
+    {% set with_dc  = counties | selectattr('dc_count', 'gt', 0) | list %}
+    {% set no_dc    = counties | selectattr('dc_count', 'eq', 0) | list %}
+    {% set avg_with    = (with_dc | sum(attribute='avg_monthly_cost') / with_dc|length) | round(0) | int %}
+    {% set avg_without = (no_dc   | sum(attribute='avg_monthly_cost') / no_dc|length)   | round(0) | int %}
+    <div class="stat-pill">
+      <span class="stat-num">{{ total_dc }}</span>
+      <span class="stat-label">Data Centers in SC</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-num">{{ with_dc | length }}</span>
+      <span class="stat-label">Affected Counties</span>
+    </div>
+    <div class="stat-pill highlight">
+      <span class="stat-num">+${{ avg_with - avg_without }}</span>
+      <span class="stat-label">Avg Overcharge / Month</span>
+    </div>
+  </div>
+  <div class="hero-actions">
+    <button class="btn-primary" onclick="switchTab('map')">🗺️ Explore the Map</button>
+    <button class="btn-secondary" onclick="switchTab('analytics')">📊 See the Data</button>
+  </div>
+</section>
+
+<!-- ── MAP TAB ────────────────────────────────────────── -->
+<section id="tab-map" class="tab-section active">
+  <div class="section-header">
+    <h2>SC County Map</h2>
+    <p>Counties colored by data center density. Click any card for details.</p>
+  </div>
+  <div class="legend">
+    <span class="legend-dot high"></span> High (5+ DCs)
+    <span class="legend-dot med"></span> Medium (1–4 DCs)
+    <span class="legend-dot low"></span> None
+  </div>
+  <div class="county-grid">
+    {% for c in counties | sort(attribute='dc_count', reverse=True) %}
+    {% if c.dc_count >= 5 %}{% set tier = 'high' %}
+    {% elif c.dc_count > 0 %}{% set tier = 'med' %}
+    {% else %}{% set tier = 'low' %}{% endif %}
+    <div class="county-card {{ tier }}" onclick="showCountyDetail('{{ c.county }}', {{ c.dc_count }}, {{ c.avg_monthly_cost }}, {{ c.adjacent | tojson }})">
+      <div class="county-name">{{ c.county }}</div>
+      <div class="county-dcs">{{ c.dc_count }} DC{% if c.dc_count != 1 %}s{% endif %}</div>
+      <div class="county-cost">${{ c.avg_monthly_cost }}/mo</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- County detail panel -->
+  <div id="county-detail" class="county-detail hidden">
+    <button class="detail-close" onclick="closeDetail()">✕</button>
+    <h3 id="detail-name"></h3>
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-label">Data Centers</span><span id="detail-dcs" class="detail-val"></span></div>
+      <div class="detail-item"><span class="detail-label">Avg Monthly Cost</span><span id="detail-cost" class="detail-val"></span></div>
+    </div>
+    <div class="detail-adjacent">
+      <span class="detail-label">Adjacent Counties</span>
+      <div id="detail-adj" class="adj-tags"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── ANALYTICS TAB ──────────────────────────────────── -->
+<section id="tab-analytics" class="tab-section">
+  <div class="section-header">
+    <h2>Cost Impact Analytics</h2>
+    <p>Monthly electricity costs across all 46 SC counties.</p>
+  </div>
+  <div class="chart-controls">
+    <label>Sort by:
+      <select id="chart-sort" onchange="renderChart()">
+        <option value="cost">Cost (high → low)</option>
+        <option value="dc">Data Centers (high → low)</option>
+        <option value="name">County Name (A–Z)</option>
+      </select>
+    </label>
+    <label>Filter:
+      <select id="chart-filter" onchange="renderChart()">
+        <option value="all">All Counties</option>
+        <option value="with">With Data Centers</option>
+        <option value="without">Without Data Centers</option>
+      </select>
+    </label>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="costChart"></canvas>
+  </div>
+  <div class="analytics-summary">
+    <div class="summary-card">
+      <div class="summary-icon">🏭</div>
+      <div>
+        <div class="summary-val">${{ avg_with }}/mo</div>
+        <div class="summary-desc">Avg cost — counties <strong>with</strong> DCs</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-icon">🏡</div>
+      <div>
+        <div class="summary-val">${{ avg_without }}/mo</div>
+        <div class="summary-desc">Avg cost — counties <strong>without</strong> DCs</div>
+      </div>
+    </div>
+    <div class="summary-card highlight">
+      <div class="summary-icon">⚡</div>
+      <div>
+        <div class="summary-val">+${{ avg_with - avg_without }}/mo</div>
+        <div class="summary-desc">Extra cost per household near a DC</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PETITION TAB ───────────────────────────────────── -->
+<section id="tab-petition" class="tab-section">
+  <div class="section-header">
+    <h2>Sign the Petition</h2>
+    <p>Demand that SC hold data centers accountable for rising electricity costs.</p>
+  </div>
+  <div class="petition-wrap">
+    <div class="petition-quote">
+      <blockquote>"Hold Data Centers Accountable for South Carolina Energy Costs — Require transparent reporting and fair rate structures from all large-scale electricity consumers."</blockquote>
+    </div>
+    <form id="petition-form" class="petition-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="p-name">Full Name</label>
+          <input type="text" id="p-name" placeholder="Jane Smith" required />
+        </div>
+        <div class="form-group">
+          <label for="p-email">Email</label>
+          <input type="email" id="p-email" placeholder="jane@example.com" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="p-county">Your County</label>
+        <select id="p-county" required>
+          <option value="">Select your county…</option>
+          {% for c in counties | sort(attribute='county') %}
+          <option value="{{ c.county }}">{{ c.county }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-primary full-width">✅ Sign the Petition</button>
+    </form>
+    <div id="petition-msg" class="petition-msg hidden"></div>
+    <div class="petition-count">
+      <span id="sig-count">1,243</span> people have already signed
+    </div>
+  </div>
+</section>
+
+<!-- ── ACTION TAB ─────────────────────────────────────── -->
+<section id="tab-action" class="tab-section">
+  <div class="section-header">
+    <h2>Take Action</h2>
+    <p>Five steps you can take right now to fight back.</p>
+  </div>
+  <div class="action-steps">
+    <div class="action-step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>Sign the Petition</h3>
+        <p>Add your name to demand accountability from data centers and the SC Public Service Commission.</p>
+        <button class="btn-secondary" onclick="switchTab('petition')">Sign Now →</button>
+      </div>
+    </div>
+    <div class="action-step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>Contact Your County Rep</h3>
+        <p>Send your representative a pre-written email asking them to support energy cost reform.</p>
+        <button class="btn-secondary" onclick="copyEmailTemplate()">📧 Copy Email Template</button>
+      </div>
+    </div>
+    <div class="action-step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>Attend a Town Hall</h3>
+        <p>SC PSC holds public hearings on utility rate changes. Your voice matters.</p>
+        <a class="btn-secondary" href="https://psc.sc.gov" target="_blank">Find Hearings →</a>
+      </div>
+    </div>
+    <div class="action-step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>Share on Social Media</h3>
+        <p>Spread awareness so more SC residents know how data centers affect their bills.</p>
+        <div class="share-buttons">
+          <button class="btn-share" onclick="shareTwitter()">🐦 Twitter/X</button>
+          <button class="btn-share" onclick="shareFacebook()">📘 Facebook</button>
+        </div>
+      </div>
+    </div>
+    <div class="action-step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h3>File a PSC Complaint</h3>
+        <p>SC residents can file formal complaints with the Public Service Commission about utility rates.</p>
+        <a class="btn-secondary" href="https://psc.sc.gov/consumer/consumer-complaints" target="_blank">File Complaint →</a>
+      </div>
+    </div>
+  </div>
+  <div id="email-copied" class="toast hidden">📋 Email template copied to clipboard!</div>
+</section>
+
+<!-- ── CHAT TAB ───────────────────────────────────────── -->
+<section id="tab-chat" class="tab-section">
+  <div class="section-header">
+    <h2>Ask RootWatch AI</h2>
+    <p>Ask anything about SC data centers and electricity costs.</p>
+  </div>
+  <div class="chat-container">
+    <div id="chat-messages" class="chat-messages">
+      <div class="chat-msg bot">
+        <div class="msg-bubble">👋 Hi! I'm the RootWatch AI. Ask me about any SC county's electricity costs, data center counts, or how DCs affect your bill.</div>
+      </div>
+      <div class="chat-suggestions">
+        <button class="suggestion" onclick="sendSuggestion(this)">Which county has the most data centers?</button>
+        <button class="suggestion" onclick="sendSuggestion(this)">What is the average cost difference?</button>
+        <button class="suggestion" onclick="sendSuggestion(this)">Tell me about Spartanburg</button>
+        <button class="suggestion" onclick="sendSuggestion(this)">How many total data centers are in SC?</button>
+      </div>
+    </div>
+    <form id="chat-form" class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Ask about any SC county…" autocomplete="off" />
+      <button type="submit" class="btn-send">Send →</button>
+    </form>
+  </div>
+</section>
+
+<!-- County data for JS -->
+<script>
+  const COUNTY_DATA = {{ counties | tojson }};
+</script>
+{% endblock %}

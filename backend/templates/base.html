@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}RootWatch{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="nav-logo">🌿</span>
+      <span class="nav-title">RootWatch</span>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="map">🗺️ Map</button>
+      <button class="nav-tab" data-tab="analytics">📊 Analytics</button>
+      <button class="nav-tab" data-tab="petition">✍️ Petition</button>
+      <button class="nav-tab" data-tab="action">📋 Action</button>
+      <button class="nav-tab" data-tab="chat">💬 Chat</button>
+    </div>
+    <a href="/api/health" class="nav-link" target="_blank">API</a>
+  </nav>
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <span>🌿 RootWatch</span>
+    <span>Built at CuHackIt 2026</span>
+    <span>Data: SC PSC</span>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
